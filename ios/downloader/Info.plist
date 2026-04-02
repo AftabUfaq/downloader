@@ -8,6 +8,10 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>downloader</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+<string>We need access to your library to save downloaded videos.</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>We need access to your library to save downloaded videos.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

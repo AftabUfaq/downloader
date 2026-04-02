@@ -117,3 +117,10 @@ dependencies {
         implementation jscFlavor
     }
 }
+configurations.all {
+    resolutionStrategy {
+        // This forces all libraries to use the same version of common Google/Android tools
+        force "androidx.core:core:1.9.0"
+        force "androidx.appcompat:appcompat:1.6.1"
+    }
+}
