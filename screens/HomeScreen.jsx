@@ -55,7 +55,6 @@ export default function HomeScreen() {
 
   const onWebViewMessage = async (event) => {
     const result = event.nativeEvent.data;
-    
 
     if (result === "error") {
       setLoading(false);
@@ -82,10 +81,6 @@ export default function HomeScreen() {
     const fileName = `video_${Date.now()}.mp4`;
     const filePath = `${RNFS.ExternalCachesDirectoryPath || RNFS.CachesDirectoryPath}/${fileName}`;
 
-const isFacebook = directVideoUrl.includes('fbcdn') || url.includes('facebook.com') || url.includes('fb.watch');
-    const isInstagram = directVideoUrl.includes('instagram.com') || url.includes('instagram.com');
-    const isTikTok = directVideoUrl.includes('tiktok.com') || url.includes('tiktok.com');
-
     try {
       setLoading(true);
       setProgress(0);
@@ -94,42 +89,40 @@ const isFacebook = directVideoUrl.includes('fbcdn') || url.includes('facebook.co
       xhr.open('GET', directVideoUrl, true);
 
       // Set your required headers
-   xhr.setRequestHeader('User-Agent', DESKTOP_UA);
-      if (isFacebook) {
-        xhr.setRequestHeader('Referer', 'https://www.facebook.com/');
-      } else if (isTikTok) {
-        xhr.setRequestHeader('Referer', 'https://www.tiktok.com/');
-      } else if (isInstagram) {
-        xhr.setRequestHeader('Referer', 'https://www.instagram.com/');
-      }
+      xhr.setRequestHeader('User-Agent', DESKTOP_UA);
+      xhr.setRequestHeader('Referer', 'https://www.tiktok.com/');
 
-    xhr.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percentComplete = Math.round((event.loaded / event.total) * 100);
-        setProgress(percentComplete);
-      }
-    };
+      // This is the magic part for progress
+      xhr.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setProgress(percentComplete);
+        }
+      };
 
-     xhr.onload = async () => {
-      if (xhr.status === 200) {
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64data = reader.result.split(',')[1];
-          await RNFS.writeFile(filePath, base64data, 'base64');
-          const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-          await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-          
-          Alert.alert("Success", "Video saved to gallery!");
-          setUrl('');
+      xhr.onload = async () => {
+        if (xhr.status === 200) {
+          // Use RNFS to write the file directly from the base64 response
+          // Note: We use responseType 'blob' or 'arraybuffer' for binary data
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64data = reader.result.split(',')[1];
+            await RNFS.writeFile(filePath, base64data, 'base64');
+
+            const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+            await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
+
+            Alert.alert("Success", "Video saved successfully!");
+            setUrl('');
+            setLoading(false);
+            setProgress(0);
+          };
+          reader.readAsDataURL(xhr.response);
+        } else {
+          Alert.alert("Error", `Server returned status: ${xhr.status}`);
           setLoading(false);
-          setProgress(0);
-        };
-        reader.readAsDataURL(xhr.response);
-      } else {
-        Alert.alert("Error", `Instagram/Server returned status: ${xhr.status}`);
-        setLoading(false);
-      }
-    };
+        }
+      };
 
       xhr.onerror = (e) => {
         console.error(e);
@@ -146,74 +139,50 @@ const isFacebook = directVideoUrl.includes('fbcdn') || url.includes('facebook.co
     }
   };
   // Script to find video source in the page
-const INJECTED_JAVASCRIPT = `
+  const INJECTED_JAVASCRIPT = `
   (function() {
-    // --- Facebook Specific Logic ---
-    function findFacebookLink() {
-      // Method A: Check for HD/SD sources in script tags (Common in 2024-2026)
-      const scripts = document.querySelectorAll('script');
-      for (let script of scripts) {
-        const content = script.textContent;
-        // Look for the "browser_native_sd_url" or "browser_native_hd_url"
-        const match = content.match(/"browser_native_hd_url":"(.*?)"/) || 
-                      content.match(/"browser_native_sd_url":"(.*?)"/);
-        if (match && match[1]) {
-          return match[1].replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
+    function findLink() {
+      // 1. Try Meta Tags (Common for Facebook/Twitter)
+      var meta = document.querySelector('meta[property="og:video:secure_url"]') || 
+                 document.querySelector('meta[property="og:video"]');
+      if (meta && meta.content && meta.content.startsWith('http')) {
+        return meta.content;
+      }
+
+      // 2. Try TikTok/Instagram specific JSON extraction
+      // They often store the HD link in a script tag
+      var scripts = document.querySelectorAll('script');
+      for (var i = 0; i < scripts.length; i++) {
+        var content = scripts[i].textContent;
+        if (content.includes("downloadAddr") || content.includes("video_url")) {
+          var match = content.match(/"downloadAddr":"(.*?)"/) || content.match(/"video_url":"(.*?)"/);
+          if (match && match[1]) {
+            return match[1].replace(/\\\\u0026/g, '&'); // Clean JSON formatting
+          }
         }
       }
 
-      // Method B: Open Graph Meta Tags
-      const ogVideo = document.querySelector('meta[property="og:video:secure_url"]') || 
-                      document.querySelector('meta[property="og:video"]');
-      if (ogVideo && ogVideo.content && !ogVideo.content.includes('blob')) {
-        return ogVideo.content;
-      }
-
-      return null;
-    }
-
-    // --- TikTok / Generic Logic ---
-    function findGenericLink() {
-      // Existing TikTok logic
-      const meta = document.querySelector('meta[name="twitter:player:stream"]');
-      if (meta && meta.content) return meta.content;
-
-      const videos = document.querySelectorAll('video');
-      for (let v of videos) {
-        if (v.src && !v.src.startsWith('blob')) return v.src;
-      }
-
-      const scripts = document.querySelectorAll('script');
-      for (let script of scripts) {
-        const content = script.textContent;
-        const match = content.match(/"downloadAddr":"(.*?)"/) || content.match(/"video_url":"(.*?)"/);
-        if (match && match[1]) return match[1].replace(/\\\\u0026/g, '&');
+      // 3. Fallback to standard video tag
+      var video = document.querySelector('video');
+      if (video && video.src && !video.src.startsWith('blob')) {
+        return video.src;
       }
       return null;
     }
 
-    let count = 0;
-    const check = setInterval(function() {
-      let link = null;
-      const currentUrl = window.location.href;
-
-      if (currentUrl.includes('facebook.com') || currentUrl.includes('fb.watch')) {
-        link = findFacebookLink();
-      } else {
-        link = findGenericLink();
-      }
-
+    var count = 0;
+    var check = setInterval(function() {
+      var link = findLink();
       if (link) {
         window.ReactNativeWebView.postMessage(link);
         clearInterval(check);
       }
-
       count++;
-      if (count > 40) { 
+      if (count > 30) {
         window.ReactNativeWebView.postMessage("error");
         clearInterval(check);
       }
-    }, 1500);
+    }, 1000);
   })();
 `;
 
