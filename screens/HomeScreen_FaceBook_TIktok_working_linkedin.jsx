@@ -25,70 +25,14 @@ import { WebView } from 'react-native-webview';
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
 const PLATFORMS = [
-  { 
-    name: 'TikTok', 
-    icon: Music, 
-    target: 'TikTok', // Matches name="TikTok" in HomeStack
-    keys: ['tiktok'], 
-    color: '#00f2ea', 
-    url: "https://www.tiktok.com/@miandildar93/video/7622241773821136141?is_from_webapp=1&sender_device=pc" 
-  },
-  { 
-    name: 'Instagram', 
-    icon: Camera, 
-    target: 'Instagram', // Matches name="Instagram" in HomeStack
-    keys: ['instagram', 'instagrm.com'], 
-    color: '#E1306C', 
-    url: "https://www.instagram.com/reel/DOrD8anCKNH/?utm_source=ig_web_button_share_sheet" 
-  },
-  { 
-    name: 'Facebook', 
-    icon: Share, 
-    target: 'Facebook', // Matches name="Facebook" in HomeStack
-    keys: ['facebook', 'fb.watch'], 
-    color: '#1877F2', 
-    url: "https://www.facebook.com/100063791587486/videos/1632232768013263" 
-  },
-  { 
-    name: 'Twitter/X', 
-    icon: X, 
-    target: 'Twitter', // Matches name="Twitter" in HomeStack
-    keys: ['twitter', 'x.com'], 
-    color: '#000000', 
-    url: "https://x.com/i/status/1998930733927379411" 
-  },
-  { 
-    name: 'YouTube', 
-    icon: Video, 
-    target: 'YouTube', // Matches name="YouTube" in HomeStack
-    keys: ['youtube.com', 'youtu.be'], 
-    color: '#FF0000', 
-    url: "https://youtube.com/shorts/DUq77WQcwSA?si=rfR9BKzrQRt_lQkt" 
-  },
-  { 
-    name: 'Pinterest', 
-    icon: Pin, 
-    target: 'Pinterest', // Matches name="Pinterest" in HomeStack
-    keys: ['pinterest'], 
-    color: '#BD081C', 
-    url: "https://pin.it/SNmFxRDOv" 
-  },
-  { 
-    name: 'LinkedIn', 
-    icon: Briefcase, 
-    target: 'LinkedIn', // Matches name="LinkedIn" in HomeStack
-    keys: ['linkedin'], 
-    color: '#0A66C2', 
-    url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464-26cM?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFK8i7oBDlehKrUJEBaxoob_uWNQicwmUNc" 
-  },
-  { 
-    name: 'Snapchat', 
-    icon: Ghost, 
-    target: 'Snapchat', // Matches name="Snapchat" in HomeStack
-    keys: ['snapchat'], 
-    color: '#FFFC00', 
-    url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYZmd1bmZodHBiAZ1IRQVzAZ1IRQUIAAAAAQ" 
-  },
+  { name: 'TikTok', icon: Music, keys: ['tiktok'], color: '#00f2ea', url: "https://www.tiktok.com/@miandildar93/video/7622241773821136141?is_from_webapp=1&sender_device=pc" },
+  { name: 'Instagram', icon: Camera, keys: ['instagram', 'instagrm.com'], color: '#E1306C', url: "https://www.instagram.com/reel/DOrD8anCKNH/?utm_source=ig_web_button_share_sheet" },
+  { name: 'Facebook', icon: Share, keys: ['facebook', 'fb.watch'], color: '#1877F2', url: "https://www.facebook.com/100063791587486/videos/1632232768013263" },
+  { name: 'Twitter/X', icon: X, keys: ['twitter', 'x.com'], color: '#000000', url: "https://x.com/i/status/1998930733927379411" },
+  { name: 'YouTube', icon: Video, keys: ['youtube.com', 'youtu.be'], color: '#FF0000', url: "https://youtube.com/shorts/DUq77WQcwSA?si=rfR9BKzrQRt_lQkt" },
+  { name: 'Pinterest', icon: Pin, keys: ['pinterest'], color: '#BD081C', url: "https://pin.it/SNmFxRDOv" },
+  { name: 'LinkedIn', icon: Briefcase, keys: ['linkedin'], color: '#0A66C2', url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464-26cM?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFK8i7oBDlehKrUJEBaxoob_uWNQicwmUNc" },
+  { name: 'Snapchat', icon: Ghost, keys: ['snapchat'], color: '#FFFC00', url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYZmd1bmZodHBiAZ1IRQVzAZ1IRQUIAAAAAQ" },
 ];
 
 
@@ -102,7 +46,7 @@ const INJECTED_JAVASCRIPT_LINKDIN = ``
 const INJECTED_JAVASCRIPT_SNAP_CHAT = ``
 
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen() {
 
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -348,7 +292,7 @@ export default function HomeScreen({ navigation }) {
       }, 1500);
     })();
   `;
-
+ 
 
 
 
@@ -363,17 +307,21 @@ export default function HomeScreen({ navigation }) {
             const isActive = app.keys.some(k => url.toLowerCase().includes(k));
             const Icon = app.icon;
             return (
-            <TouchableOpacity
-              key={app.name}
-              onPress={() => {
-                // This now sends the user to the specific screen in HomeStack
-                navigation.navigate(app.target, { initialUrl: app.url });
-              }}
-              style={styles.gridItem}
-            >
-              <app.icon size={24} color={app.color} />
-              <Text style={styles.gridText}>{app.name}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setUrl(app.url)
+                }}
+                key={app.name}
+                style={[
+                  styles.gridItem,
+                  isActive && { borderColor: app.color, borderWidth: 2, backgroundColor: `${app.color}10` }
+                ]}
+              >
+                <Icon size={24} color={isActive ? app.color : '#555'} />
+                <Text style={[styles.gridText, isActive && { color: app.color, fontWeight: 'bold' }]}>
+                  {app.name}
+                </Text>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -404,7 +352,7 @@ export default function HomeScreen({ navigation }) {
           <TouchableOpacity
             style={[styles.mainButton, loading && { backgroundColor: '#A0A0A0' }]}
             onPress={handleScrape}
-          //disabled={loading}
+            //disabled={loading}
           >
             <Text style={styles.mainButtonText}>
               {loading ? 'Please wait...' : 'Download Video'}
@@ -460,7 +408,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: 10,
     alignItems: 'center',
-
+    
   },
   gridText: {
     fontSize: 11,
