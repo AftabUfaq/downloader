@@ -11,7 +11,7 @@ export default function App() {
 
   useEffect(() => {
     // Hide splash after 2 seconds
-    const timer = setTimeout(() => { SplashScreen.hide(); }, 2000);
+    const timer = setTimeout(() => { SplashScreen.hide(); }, 5000);
     return () => clearTimeout(timer);
   }, []);
 

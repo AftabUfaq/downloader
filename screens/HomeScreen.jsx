@@ -82,9 +82,9 @@ export default function HomeScreen() {
     const fileName = `video_${Date.now()}.mp4`;
     const filePath = `${RNFS.ExternalCachesDirectoryPath || RNFS.CachesDirectoryPath}/${fileName}`;
 
-    // Detect which platform we are downloading from
-  const isInstagram = directVideoUrl.includes('instagram.com') || url.includes('instagram.com');
-  const isTikTok = directVideoUrl.includes('tiktok.com') || url.includes('tiktok.com');
+const isFacebook = directVideoUrl.includes('fbcdn') || url.includes('facebook.com') || url.includes('fb.watch');
+    const isInstagram = directVideoUrl.includes('instagram.com') || url.includes('instagram.com');
+    const isTikTok = directVideoUrl.includes('tiktok.com') || url.includes('tiktok.com');
 
     try {
       setLoading(true);
@@ -94,12 +94,14 @@ export default function HomeScreen() {
       xhr.open('GET', directVideoUrl, true);
 
       // Set your required headers
-    xhr.setRequestHeader('User-Agent', DESKTOP_UA);
-    if (isTikTok) {
-      xhr.setRequestHeader('Referer', 'https://www.tiktok.com/');
-    } else if (isInstagram) {
-      xhr.setRequestHeader('Referer', 'https://www.instagram.com/');
-    }
+   xhr.setRequestHeader('User-Agent', DESKTOP_UA);
+      if (isFacebook) {
+        xhr.setRequestHeader('Referer', 'https://www.facebook.com/');
+      } else if (isTikTok) {
+        xhr.setRequestHeader('Referer', 'https://www.tiktok.com/');
+      } else if (isInstagram) {
+        xhr.setRequestHeader('Referer', 'https://www.instagram.com/');
+      }
 
     xhr.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -146,52 +148,72 @@ export default function HomeScreen() {
   // Script to find video source in the page
 const INJECTED_JAVASCRIPT = `
   (function() {
-    function findLink() {
-      // 1. Check Meta Tags (Best for Instagram/Facebook)
-      const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
-                   document.querySelector('meta[property="og:video"]') ||
-                   document.querySelector('meta[name="twitter:player:stream"]');
-      if (meta && meta.content && meta.content.startsWith('http')) {
-        return meta.content;
-      }
-
-      // 2. Instagram Specific: Look for the video element
-      // Instagram often uses multiple video tags; we want the one that is visible
-      const videos = document.querySelectorAll('video');
-      for (let v of videos) {
-        if (v.src && !v.src.startsWith('blob')) {
-          return v.src;
-        }
-      }
-
-      // 3. TikTok/JSON Fallback (Your existing logic)
+    // --- Facebook Specific Logic ---
+    function findFacebookLink() {
+      // Method A: Check for HD/SD sources in script tags (Common in 2024-2026)
       const scripts = document.querySelectorAll('script');
-      for (let i = 0; i < scripts.length; i++) {
-        const content = scripts[i].textContent;
-        if (content.includes("downloadAddr") || content.includes("video_url")) {
-          const match = content.match(/"downloadAddr":"(.*?)"/) || content.match(/"video_url":"(.*?)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\\\u0026/g, '&');
-          }
+      for (let script of scripts) {
+        const content = script.textContent;
+        // Look for the "browser_native_sd_url" or "browser_native_hd_url"
+        const match = content.match(/"browser_native_hd_url":"(.*?)"/) || 
+                      content.match(/"browser_native_sd_url":"(.*?)"/);
+        if (match && match[1]) {
+          return match[1].replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
         }
+      }
+
+      // Method B: Open Graph Meta Tags
+      const ogVideo = document.querySelector('meta[property="og:video:secure_url"]') || 
+                      document.querySelector('meta[property="og:video"]');
+      if (ogVideo && ogVideo.content && !ogVideo.content.includes('blob')) {
+        return ogVideo.content;
       }
 
       return null;
     }
 
+    // --- TikTok / Generic Logic ---
+    function findGenericLink() {
+      // Existing TikTok logic
+      const meta = document.querySelector('meta[name="twitter:player:stream"]');
+      if (meta && meta.content) return meta.content;
+
+      const videos = document.querySelectorAll('video');
+      for (let v of videos) {
+        if (v.src && !v.src.startsWith('blob')) return v.src;
+      }
+
+      const scripts = document.querySelectorAll('script');
+      for (let script of scripts) {
+        const content = script.textContent;
+        const match = content.match(/"downloadAddr":"(.*?)"/) || content.match(/"video_url":"(.*?)"/);
+        if (match && match[1]) return match[1].replace(/\\\\u0026/g, '&');
+      }
+      return null;
+    }
+
     let count = 0;
     const check = setInterval(function() {
-      const link = findLink();
+      let link = null;
+      const currentUrl = window.location.href;
+
+      if (currentUrl.includes('facebook.com') || currentUrl.includes('fb.watch')) {
+        link = findFacebookLink();
+      } else {
+        link = findGenericLink();
+      }
+
       if (link) {
         window.ReactNativeWebView.postMessage(link);
         clearInterval(check);
       }
+
       count++;
-      if (count > 40) { // Increased timeout for Instagram
+      if (count > 40) { 
         window.ReactNativeWebView.postMessage("error");
         clearInterval(check);
       }
-    }, 1500); // Instagram takes a bit longer to hydrate the DOM
+    }, 1500);
   })();
 `;
 
