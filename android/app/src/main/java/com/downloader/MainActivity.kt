@@ -20,4 +20,4 @@ class MainActivity : ReactActivity() {
     // 2. Updated Delegate
     override fun createReactActivityDelegate(): ReactActivityDelegate =
         DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
-}`
+}
