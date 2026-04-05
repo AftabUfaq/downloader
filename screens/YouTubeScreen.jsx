@@ -1,44 +1,99 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Video } from 'lucide-react-native';
+import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 
-const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1";
 
-export default function YouTubeScreen({route}) {
+export default function YouTubeScreen({ route }) {
+  // HOOKS AT THE TOP - Guaranteed order
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
   useEffect(() => {
     if (route.params?.initialUrl) {
       setUrl(route.params.initialUrl);
     }
   }, [route.params?.initialUrl]);
 
-  // YouTube Specific Scraper
+  // 2. Advanced YouTube Scraper
+  // YouTube uses ytInitialPlayerResponse to store video stream data
   const INJECTED_JS = `(function() {
-    // Attempt to find the video source in meta tags first
-    const meta = document.querySelector('meta[property="og:video:url"]') || 
-                 document.querySelector('meta[property="og:video:secure_url"]');
-    
-    if (meta && meta.content) {
-      window.ReactNativeWebView.postMessage(meta.content);
-    } else {
-      // Fallback: check for the first video element with a source
-      const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) {
-        window.ReactNativeWebView.postMessage(video.src);
-      } else {
-        // If it's a "Shorts" or specific player, we send an error to retry
-        window.ReactNativeWebView.postMessage("not_found");
-      }
+  function findMobileLink() {
+    // 1. Look for the actual video element (Most reliable on mobile UA)
+    const video = document.querySelector('video');
+    if (video && video.src && !video.src.startsWith('blob')) {
+      return video.src;
     }
-  })()`;
+    
+    // 2. Fallback to the 'ytInitialPlayerResponse' JSON
+    try {
+      if (window.ytInitialPlayerResponse) {
+        const streamingData = window.ytInitialPlayerResponse.streamingData;
+        const format = streamingData.formats.find(f => f.url);
+        if (format) return format.url;
+      }
+    } catch(e) {}
+    
+    return null;
+  }
 
-  const handleDownload = () => {
+  // Mobile YouTube takes a bit to switch from the 'preview' to the 'player'
+  let attempts = 0;
+  const check = setInterval(() => {
+    const link = findMobileLink();
+    if (link) {
+      window.ReactNativeWebView.postMessage(link);
+      clearInterval(check);
+    }
+    attempts++;
+    if (attempts > 20) {
+      window.ReactNativeWebView.postMessage("not_found");
+      clearInterval(check);
+    }
+  }, 1500);
+})();`;
+
+  const handleProcess = async () => {
     if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
       return Alert.alert("Invalid Link", "Please paste a valid YouTube or Shorts link.");
     }
+
+    const hasPermission = await requestStoragePermission();
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
+
+    setLoading(true);
+    setProgress(0);
     setScrapingUrl(url);
+  };
+
+  const onMessage = async (e) => {
+    const result = e.nativeEvent.data;
+    setScrapingUrl(''); // Immediately kill WebView to keep hook order stable
+
+    if (result === "not_found" || result === "error") {
+      setLoading(false);
+      return Alert.alert("Error", "Could not find a downloadable stream. YouTube often blocks direct scraping.");
+    }
+
+    try {
+      // 3. Trigger Centralized Download
+      await startDownload(result, 'YouTube', (p) => setProgress(p));
+
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+        Alert.alert("Success", "YouTube video saved to gallery!");
+        setUrl('');
+      }, 500);
+
+    } catch (err) {
+      setLoading(false);
+      Alert.alert("Download Failed", "Link found but download was blocked by YouTube's servers.");
+    }
   };
 
   return (
@@ -46,42 +101,46 @@ export default function YouTubeScreen({route}) {
       <Video size={60} color="#FF0000" style={styles.icon} />
       <Text style={styles.title}>YouTube Downloader</Text>
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="Paste YouTube or Shorts Link..." 
+      <TextInput
+        style={styles.input}
+        placeholder="Paste YouTube or Shorts Link..."
         placeholderTextColor="#999"
-        onChangeText={setUrl} 
+        onChangeText={setUrl}
         value={url}
         autoCapitalize="none"
+        editable={!loading}
       />
-      
-      <TouchableOpacity 
-        style={styles.btn} 
-        onPress={handleDownload}
+
+      {loading && (
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator color="#FF0000" />
+          <Text style={styles.progressText}>
+            {progress > 0 ? `Downloading: ${progress}%` : 'Searching YouTube Streams...'}
+          </Text>
+        </View>
+      )}
+
+      <TouchableOpacity
+        style={[styles.btn, loading && { opacity: 0.6 }]}
+        onPress={handleProcess}
+        disabled={loading}
       >
-        <Text style={styles.btnText}>Extract Video</Text>
+        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download Video'}</Text>
       </TouchableOpacity>
 
-      {/* Hidden WebView with Desktop User Agent */}
-      {scrapingUrl !== '' && (
-        <View style={{ height: 0, width: 0, position: 'absolute' }}>
-          <WebView 
-            source={{ uri: scrapingUrl }} 
-            injectedJavaScript={INJECTED_JS} 
-            userAgent={DESKTOP_UA} // Critical for YouTube scraping
-            onMessage={(e) => {
-                const result = e.nativeEvent.data;
-                if (result !== "not_found") {
-                  console.log("YouTube Video Link:", result);
-                  setScrapingUrl('');
-                  // Trigger your download logic here
-                }
-            }} 
+      {/* Hidden WebView Container - Stable in the tree */}
+      <View style={{ height: 0, width: 0, position: 'absolute' }}>
+        {scrapingUrl !== '' && (
+          <WebView
+            source={{ uri: scrapingUrl }}
+            injectedJavaScript={INJECTED_JS}
+            userAgent={MOBILE_UA} // Use the Mobile one here!
+            onMessage={onMessage}
             javaScriptEnabled={true}
             domStorageEnabled={true}
           />
-        </View>
-      )}
+        )}
+      </View>
     </View>
   );
 }
@@ -98,7 +157,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
     textAlign: 'center',
@@ -116,8 +175,8 @@ const styles = StyleSheet.create({
   },
   btn: {
     backgroundColor: '#FF0000',
-    padding: 16,
-    borderRadius: 12,
+    padding: 18,
+    borderRadius: 15,
     alignItems: 'center',
   },
   btnText: {
@@ -125,4 +184,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  loaderContainer: {
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  progressText: {
+    marginTop: 8,
+    color: '#666',
+    fontWeight: '600'
+  }
 });

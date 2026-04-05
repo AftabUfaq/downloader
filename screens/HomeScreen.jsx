@@ -31,7 +31,7 @@ const PLATFORMS = [
     target: 'TikTok', // Matches name="TikTok" in HomeStack
     keys: ['tiktok'], 
     color: '#00f2ea', 
-    url: "https://www.tiktok.com/@miandildar93/video/7622241773821136141?is_from_webapp=1&sender_device=pc" 
+    url: "https://www.tiktok.com/@el_primo_istribitel/video/7612267299197783312?is_from_webapp=1&sender_device=pc" 
   },
   { 
     name: 'Instagram', 
@@ -55,7 +55,7 @@ const PLATFORMS = [
     target: 'Twitter', // Matches name="Twitter" in HomeStack
     keys: ['twitter', 'x.com'], 
     color: '#000000', 
-    url: "https://x.com/i/status/1998930733927379411" 
+    url: "https://x.com/i/status/2040454818846945754" 
   },
   { 
     name: 'YouTube', 
