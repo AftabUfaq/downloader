@@ -12,7 +12,7 @@ export default function LinkedInScreen({ route }) {
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [previewPath, setPreviewPath] = useState(null); // State for preview
+  const [previewPath, setPreviewPath] = useState(null);
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -68,13 +68,9 @@ export default function LinkedInScreen({ route }) {
     }
 
     try {
-      // 1. Download and get local path
       const localUri = await startDownload(result, 'LinkedIn', (p) => setProgress(p));
-      
-      // 2. Set for preview
       setPreviewPath(localUri);
 
-      // 3. Save to AsyncStorage for Recent Downloads
       const newDownload = {
         id: Date.now().toString(),
         title: `LinkedIn_${Date.now()}`,
@@ -87,7 +83,7 @@ export default function LinkedInScreen({ route }) {
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
-      Alert.alert("Success", "LinkedIn video saved to gallery!");
+      Alert.alert("Success", "LinkedIn video saved!");
       setUrl('');
     } catch (err) {
       Alert.alert("Download Failed", "Check your connection.");
@@ -104,7 +100,7 @@ export default function LinkedInScreen({ route }) {
         <Text style={styles.title}>LinkedIn Downloader</Text>
       </View>
 
-      {/* --- VIDEO PREVIEW PLAYER --- */}
+      {/* --- FIXED VIDEO PREVIEW PLAYER --- */}
       {previewPath && (
         <View style={styles.previewContainer}>
           <View style={styles.previewHeader}>
@@ -115,11 +111,23 @@ export default function LinkedInScreen({ route }) {
           </View>
           <View style={styles.videoBox}>
             <WebView
-              allowsFullscreenVideo
+              // CRITICAL: These 3 props allow the video to play from storage
+              originWhitelist={['*']}
+              allowFileAccess={true}
+              allowUniversalAccessFromFileURLs={true}
+              
+              allowsFullscreenVideo={true}
               scrollEnabled={false}
+              javaScriptEnabled={true}
               source={{ html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
+                  <video 
+                    src="${previewPath}" 
+                    controls 
+                    autoplay 
+                    playsinline
+                    style="width:100%; height:100%; object-fit: contain;">
+                  </video>
                 </body>
               `}}
               style={{ flex: 1 }}

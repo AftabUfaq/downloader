@@ -36,7 +36,7 @@ export const startDownload = async (directVideoUrl, platformName, onProgress) =>
   console.log("Attempting final download from:", cleanUrl);
 
   const fileName = `${platformName}_${Date.now()}.mp4`;
-  const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+ const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

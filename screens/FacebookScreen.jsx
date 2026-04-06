@@ -129,16 +129,27 @@ export default function FacebookScreen({ route }) {
             </TouchableOpacity>
           </View>
           <View style={styles.videoWrapper}>
-            <WebView
-              allowsFullscreenVideo
-              scrollEnabled={false}
-              source={{ html: `
-                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
-                </body>
-              `}}
-              style={styles.webViewPlayer}
-            />
+          <WebView
+  originWhitelist={['*']}           // Allows any URL type (including file://)
+  allowFileAccess={true}            // Essential for Android local file reading
+  allowUniversalAccessFromFileURLs={true} // Allows the HTML to "reach out" to the file
+  allowsFullscreenVideo={true}
+  scrollEnabled={false}
+  source={{
+    html: `
+      <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+        <video 
+          src="${previewPath}" 
+          controls 
+          autoplay 
+          playsinline
+          style="width:100%; height:100%; object-fit: contain;"
+        ></video>
+      </body>
+    `
+  }}
+  style={styles.previewWebView}
+/>
           </View>
         </View>
       )}

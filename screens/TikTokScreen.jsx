@@ -71,7 +71,7 @@ export default function TikTokScreen({ route }) {
 
     setPreviewPath(null);
     setLoading(true);
-    setScrapingUrl(url); 
+    setScrapingUrl(url);
   };
 
   const onScraperMessage = async (e) => {
@@ -93,11 +93,11 @@ export default function TikTokScreen({ route }) {
       if (response.type === 'success') {
         const videoUrl = response.data;
         setScrapingUrl('');
-        
+
         try {
           // Download video and get local path
           const localUri = await startDownload(videoUrl, 'TikTok', (p) => setProgress(p));
-          
+
           // Set preview immediately
           setPreviewPath(localUri);
 
@@ -108,7 +108,7 @@ export default function TikTokScreen({ route }) {
             path: localUri,
             date: new Date().toLocaleDateString(),
           };
-          
+
           const existing = await AsyncStorage.getItem('recent_downloads');
           const downloads = existing ? JSON.parse(existing) : [];
           await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
@@ -144,14 +144,23 @@ export default function TikTokScreen({ route }) {
           </View>
           <View style={styles.videoContainer}>
             <WebView
+              originWhitelist={['*']}           // Allows any URL type (including file://)
+              allowFileAccess={true}            // Essential for Android local file reading
+              allowUniversalAccessFromFileURLs={true} // Allows the HTML to "reach out" to the file
+              allowsFullscreenVideo={true}
               scrollEnabled={false}
-              allowsFullscreenVideo
               source={{
                 html: `
-                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
-                </body>
-                `
+      <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+        <video 
+          src="${previewPath}" 
+          controls 
+          autoplay 
+          playsinline
+          style="width:100%; height:100%; object-fit: contain;"
+        ></video>
+      </body>
+    `
               }}
               style={styles.previewWebView}
             />
@@ -160,7 +169,7 @@ export default function TikTokScreen({ route }) {
       ) : (
         <View style={styles.placeholderBox}>
           <Play color="#eee" size={80} />
-          <Text style={{color: '#ccc', marginTop: 10}}>Download a video to see preview</Text>
+          <Text style={{ color: '#ccc', marginTop: 10 }}>Download a video to see preview</Text>
         </View>
       )}
 
@@ -199,7 +208,7 @@ export default function TikTokScreen({ route }) {
             source={{ uri: scrapingUrl }}
             injectedJavaScript={TIKTOK_JS}
             onMessage={onScraperMessage}
-            userAgent={DESKTOP_UA} 
+            userAgent={DESKTOP_UA}
             javaScriptEnabled={true}
             domStorageEnabled={true}
           />

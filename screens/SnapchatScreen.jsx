@@ -14,7 +14,7 @@ export default function SnapchatScreen({route}) {
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [previewPath, setPreviewPath] = useState(null); // Added for Preview
+  const [previewPath, setPreviewPath] = useState(null); 
 
   const activeRequestId = useRef(null);
 
@@ -27,7 +27,6 @@ export default function SnapchatScreen({route}) {
   const INJECTED_JS = `(function() {
     if (window.snappyScraperLoaded) return;
     window.snappyScraperLoaded = true;
-
     function findSnapLink() {
       const video = document.querySelector('video');
       if (video && video.src && !video.src.startsWith('blob')) return video.src;
@@ -35,12 +34,10 @@ export default function SnapchatScreen({route}) {
                    document.querySelector('meta[property="og:video"]');
       return meta ? meta.content : null;
     }
-
     let attempts = 0;
     const checkInterval = setInterval(() => {
       attempts++;
       const link = findSnapLink();
-      
       if (link) {
         clearInterval(checkInterval);
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS', data: link }));
@@ -58,7 +55,7 @@ export default function SnapchatScreen({route}) {
     const hasPermission = await requestStoragePermission();
     if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
 
-    setPreviewPath(null); // Clear previous preview
+    setPreviewPath(null); 
     activeRequestId.current = Date.now().toString();
     setLoading(true);
     setProgress(0);
@@ -68,8 +65,7 @@ export default function SnapchatScreen({route}) {
   const saveSnapchatVideo = async (directVideoUrl) => {
     let cleanUrl = directVideoUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
     const fileName = `Snapchat_${Date.now()}.mp4`;
-    
-    // Using ExternalDirectoryPath to ensure system players can read it for the Downloads screen
+    // Consistent with DownloadManager: Using ExternalDirectoryPath
     const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
 
     const options = {
@@ -89,7 +85,7 @@ export default function SnapchatScreen({route}) {
       if (result.statusCode === 200 || result.statusCode === 206) {
         const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
         await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-        return cleanPath; // Return the path for the preview and list
+        return cleanPath; 
       } else {
         throw new Error(`Server error: ${result.statusCode}`);
       }
@@ -113,11 +109,8 @@ export default function SnapchatScreen({route}) {
 
     try {
       const savedPath = await saveSnapchatVideo(response.data);
-      
-      // Update Preview
       setPreviewPath(savedPath);
 
-      // Save to Recent Downloads
       const newDownload = {
         id: Date.now().toString(),
         title: `Snapchat_${Date.now()}`,
@@ -146,7 +139,7 @@ export default function SnapchatScreen({route}) {
       </View>
       <Text style={styles.title}>Snapchat Downloader</Text>
 
-      {/* --- VIDEO PREVIEW PLAYER --- */}
+      {/* --- VIDEO PREVIEW PLAYER (FIXED FOR PLAYBACK) --- */}
       {previewPath && (
         <View style={styles.previewContainer}>
           <View style={styles.previewHeader}>
@@ -157,11 +150,15 @@ export default function SnapchatScreen({route}) {
           </View>
           <View style={styles.videoBox}>
             <WebView
-              allowsFullscreenVideo
+              originWhitelist={['*']}
+              allowFileAccess={true}
+              allowUniversalAccessFromFileURLs={true}
+              allowsFullscreenVideo={true}
               scrollEnabled={false}
+              javaScriptEnabled={true}
               source={{ html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
+                  <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
                 </body>
               `}}
               style={{ flex: 1 }}
@@ -219,7 +216,7 @@ const styles = StyleSheet.create({
   previewContainer: { marginBottom: 20, width: '100%' },
   previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   previewLabel: { fontWeight: 'bold', color: '#000' },
-  videoBox: { height: 250, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
+  videoBox: { height: 300, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 }, // Height increased to 300 for Snapchat portrait videos
   input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
   btn: { backgroundColor: '#FFFC00', padding: 18, borderRadius: 15, alignItems: 'center' },
   btnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
