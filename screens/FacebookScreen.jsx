@@ -10,8 +10,8 @@ import {
   Dimensions
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Share } from 'lucide-react-native';
-// Ensure this path matches where you saved your utility file
+import { Share, XCircle } from 'lucide-react-native'; // Added XCircle for closing preview
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
 
 const { width } = Dimensions.get('window');
@@ -22,6 +22,7 @@ export default function FacebookScreen({ route }) {
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [previewPath, setPreviewPath] = useState(null); // State for Video Preview
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -29,7 +30,6 @@ export default function FacebookScreen({ route }) {
     }
   }, [route.params?.initialUrl]);
 
-  // Facebook Scraper: HD/SD script matching + OpenGraph fallback
   const INJECTED_JS = `(function() {
     try {
       function findLink() {
@@ -46,8 +46,6 @@ export default function FacebookScreen({ route }) {
                         document.querySelector('meta[property="og:video"]');
         return ogVideo ? ogVideo.content : null;
       }
-
-      // Check once immediately, then again after a short delay
       const initialLink = findLink();
       if (initialLink) {
         window.ReactNativeWebView.postMessage(initialLink);
@@ -64,14 +62,12 @@ export default function FacebookScreen({ route }) {
 
   const handleProcess = async () => {
     if (!url.includes('facebook.com') && !url.includes('fb.watch')) {
-      return Alert.alert("Invalid Link", "Please paste a valid Facebook or FB Watch link.");
+      return Alert.alert("Invalid Link", "Please paste a valid Facebook link.");
     }
-
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) {
-      return Alert.alert("Permission Denied", "Storage access is required to save videos.");
-    }
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access is required.");
 
+    setPreviewPath(null); // Clear old preview
     setLoading(true);
     setProgress(0);
     setScrapingUrl(url);
@@ -79,18 +75,35 @@ export default function FacebookScreen({ route }) {
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); // Kill the webview immediately to save resources
+    setScrapingUrl(''); 
 
     if (result === "not_found" || result === "error" || !result.startsWith('http')) {
       setLoading(false);
-      return Alert.alert("Error", "Could not find the video source. Make sure the post is Public.");
+      return Alert.alert("Error", "Could not find video. Ensure the post is Public.");
     }
 
     try {
-      // Start the actual file download
-      await startDownload(result, 'Facebook', (p) => setProgress(p));
-      Alert.alert("Success", "Facebook video saved to gallery!");
-      setUrl(''); // Clear input on success
+      // 1. Download and get the local path
+      const localUri = await startDownload(result, 'Facebook', (p) => setProgress(p));
+      
+      // 2. Set for Preview
+      setPreviewPath(localUri);
+
+      // 3. Save Metadata to Recent Downloads
+      const newDownload = {
+        id: Date.now().toString(),
+        title: `Facebook_${Date.now()}`,
+        path: localUri,
+        platform: 'Facebook', // Identifies this as a FB video in the list
+        date: new Date().toLocaleDateString(),
+      };
+
+      const existing = await AsyncStorage.getItem('recent_downloads');
+      const downloads = existing ? JSON.parse(existing) : [];
+      await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
+
+      Alert.alert("Success", "Facebook video saved!");
+      setUrl(''); 
     } catch (err) {
       Alert.alert("Download Failed", err.toString());
     } finally {
@@ -104,8 +117,31 @@ export default function FacebookScreen({ route }) {
       <View style={styles.headerArea}>
         <Share size={60} color="#1877F2" />
         <Text style={styles.title}>Facebook Downloader</Text>
-        <Text style={styles.subtitle}>HD & SD Video Support</Text>
       </View>
+
+      {/* --- VIDEO PREVIEW UI --- */}
+      {previewPath && (
+        <View style={styles.previewBox}>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewText}>Preview Saved Video</Text>
+            <TouchableOpacity onPress={() => setPreviewPath(null)}>
+              <XCircle color="#ff0050" size={24} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.videoWrapper}>
+            <WebView
+              allowsFullscreenVideo
+              scrollEnabled={false}
+              source={{ html: `
+                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
+                </body>
+              `}}
+              style={styles.webViewPlayer}
+            />
+          </View>
+        </View>
+      )}
 
       <View style={styles.inputCard}>
         <TextInput 
@@ -141,7 +177,6 @@ export default function FacebookScreen({ route }) {
         </TouchableOpacity>
       </View>
 
-      {/* Hidden Scraper */}
       {scrapingUrl !== '' && (
         <View style={{ height: 0, width: 0, position: 'absolute' }}>
           <WebView 
@@ -149,9 +184,6 @@ export default function FacebookScreen({ route }) {
             injectedJavaScript={INJECTED_JS} 
             userAgent={DESKTOP_UA} 
             onMessage={onMessage} 
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={true}
           />
         </View>
       )}
@@ -160,78 +192,23 @@ export default function FacebookScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F0F2F5', // Facebook-ish grey
-    padding: 20,
-  },
-  headerArea: {
-    alignItems: 'center',
-    marginTop: 60,
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1877F2',
-    marginTop: 10,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#65676B',
-  },
-  inputCard: {
-    backgroundColor: '#FFF',
-    padding: 20,
-    borderRadius: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  input: {
-    backgroundColor: '#F0F2F5',
-    padding: 15,
-    borderRadius: 10,
-    fontSize: 16,
-    color: '#000',
-    marginBottom: 20,
-  },
-  btn: {
-    backgroundColor: '#1877F2',
-    padding: 16,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  btnDisabled: {
-    backgroundColor: '#A2C5F2',
-  },
-  btnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  progressArea: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  progressText: {
-    marginTop: 10,
-    fontSize: 13,
-    color: '#1877F2',
-    fontWeight: '600',
-    marginBottom: 10,
-  },
-  barBg: {
-    height: 6,
-    width: '100%',
-    backgroundColor: '#E4E6EB',
-    borderRadius: 3,
-    overflow: 'hidden'
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: '#1877F2'
-  }
+  container: { flex: 1, backgroundColor: '#F0F2F5', padding: 20 },
+  headerArea: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#1877F2', marginTop: 10 },
+  inputCard: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, elevation: 3 },
+  input: { backgroundColor: '#F0F2F5', padding: 15, borderRadius: 10, fontSize: 16, color: '#000', marginBottom: 20 },
+  btn: { backgroundColor: '#1877F2', padding: 16, borderRadius: 10, alignItems: 'center' },
+  btnDisabled: { backgroundColor: '#A2C5F2' },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  progressArea: { alignItems: 'center', marginBottom: 20 },
+  progressText: { marginTop: 10, fontSize: 13, color: '#1877F2', fontWeight: '600', marginBottom: 10 },
+  barBg: { height: 6, width: '100%', backgroundColor: '#E4E6EB', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: '#1877F2' },
+  
+  // Preview Styles
+  previewBox: { marginBottom: 20, width: '100%' },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  previewText: { fontWeight: 'bold', color: '#65676B' },
+  videoWrapper: { height: 230, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
+  webViewPlayer: { flex: 1 }
 });

@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Briefcase } from 'lucide-react-native';
-// 1. Import the working utility
+import { Briefcase, XCircle } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
-export default function LinkedInScreen({route}) {
+export default function LinkedInScreen({ route }) {
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [previewPath, setPreviewPath] = useState(null); // State for preview
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -19,23 +20,15 @@ export default function LinkedInScreen({route}) {
     }
   }, [route.params?.initialUrl]);
 
-  // 2. Updated Scraper Logic with IIFE and Timing
   const INJECTED_JS = `(function() {
     function findLinkedInVideo() {
-      // Check Meta tags (LinkedIn often populates these for public posts)
       const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
                    document.querySelector('meta[property="og:video"]');
-      if (meta && meta.content && meta.content.startsWith('http')) {
-        return meta.content;
-      }
+      if (meta && meta.content && meta.content.startsWith('http')) return meta.content;
       
-      // Fallback: Check for the actual video element source
       const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) {
-        return video.src;
-      }
+      if (video && video.src && !video.src.startsWith('blob')) return video.src;
 
-      // Deep Scrape: LinkedIn sometimes stores URLs in script tags as JSON
       const scripts = document.querySelectorAll('script');
       for (let script of scripts) {
         const content = script.textContent;
@@ -46,8 +39,6 @@ export default function LinkedInScreen({route}) {
       }
       return null;
     }
-
-    // Give the page 2 seconds to load dynamic content
     setTimeout(() => {
       const link = findLinkedInVideo();
       window.ReactNativeWebView.postMessage(link || "not_found");
@@ -58,46 +49,84 @@ export default function LinkedInScreen({route}) {
     if (!url.includes('linkedin.com')) {
       return Alert.alert("Invalid Link", "Please paste a valid LinkedIn post link.");
     }
-
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access is required.");
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
 
+    setPreviewPath(null);
     setLoading(true);
     setProgress(0);
-    setScrapingUrl(url); // Trigger WebView
+    setScrapingUrl(url); 
   };
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); // Close scraper
+    setScrapingUrl(''); 
 
     if (result === "not_found") {
       setLoading(false);
-      return Alert.alert("Error", "Could not find video. Ensure the post is public and contains a video.");
+      return Alert.alert("Error", "Could not find video. Ensure the post is public.");
     }
 
     try {
-      // 3. Trigger Centralized Download & Gallery Save
-      await startDownload(result, 'LinkedIn', (p) => setProgress(p));
+      // 1. Download and get local path
+      const localUri = await startDownload(result, 'LinkedIn', (p) => setProgress(p));
       
-      // Half-second delay for stability before alert
-      setTimeout(() => {
-        setLoading(false);
-        setProgress(0);
-        Alert.alert("Success", "LinkedIn video saved to gallery!");
-        setUrl('');
-      }, 500);
+      // 2. Set for preview
+      setPreviewPath(localUri);
 
+      // 3. Save to AsyncStorage for Recent Downloads
+      const newDownload = {
+        id: Date.now().toString(),
+        title: `LinkedIn_${Date.now()}`,
+        path: localUri,
+        platform: 'LinkedIn',
+        date: new Date().toLocaleDateString(),
+      };
+
+      const existing = await AsyncStorage.getItem('recent_downloads');
+      const downloads = existing ? JSON.parse(existing) : [];
+      await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
+
+      Alert.alert("Success", "LinkedIn video saved to gallery!");
+      setUrl('');
     } catch (err) {
+      Alert.alert("Download Failed", "Check your connection.");
+    } finally {
       setLoading(false);
-      Alert.alert("Download Failed", "Found the link, but couldn't save it. Check your internet.");
+      setProgress(0);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Briefcase size={60} color="#0A66C2" style={styles.icon} />
-      <Text style={styles.title}>LinkedIn Downloader</Text>
+      <View style={styles.header}>
+        <Briefcase size={50} color="#0A66C2" />
+        <Text style={styles.title}>LinkedIn Downloader</Text>
+      </View>
+
+      {/* --- VIDEO PREVIEW PLAYER --- */}
+      {previewPath && (
+        <View style={styles.previewContainer}>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewLabel}>Video Ready</Text>
+            <TouchableOpacity onPress={() => setPreviewPath(null)}>
+              <XCircle color="#ff0050" size={24} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.videoBox}>
+            <WebView
+              allowsFullscreenVideo
+              scrollEnabled={false}
+              source={{ html: `
+                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+                  <video src="${previewPath}" controls autoplay style="width:100%; height:100%; object-fit: contain;"></video>
+                </body>
+              `}}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
+      )}
 
       <TextInput 
         style={styles.input} 
@@ -113,7 +142,7 @@ export default function LinkedInScreen({route}) {
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#0A66C2" />
           <Text style={styles.progressText}>
-            {progress > 0 ? `Downloading: ${progress}%` : 'Analyzing LinkedIn Post...'}
+            {progress > 0 ? `Downloading: ${progress}%` : 'Analyzing Post...'}
           </Text>
         </View>
       )}
@@ -123,7 +152,7 @@ export default function LinkedInScreen({route}) {
         onPress={handleProcess}
         disabled={loading}
       >
-        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download LinkedIn Video'}</Text>
+        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download Video'}</Text>
       </TouchableOpacity>
 
       {scrapingUrl !== '' && (
@@ -133,8 +162,6 @@ export default function LinkedInScreen({route}) {
             injectedJavaScript={INJECTED_JS} 
             userAgent={DESKTOP_UA} 
             onMessage={onMessage} 
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
           />
         </View>
       )}
@@ -143,51 +170,16 @@ export default function LinkedInScreen({route}) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  icon: {
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0A66C2',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  input: {
-    backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#eee',
-    color: '#000',
-  },
-  btn: {
-    backgroundColor: '#0A66C2',
-    padding: 18,
-    borderRadius: 15,
-    alignItems: 'center',
-  },
-  btnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loaderContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  progressText: {
-    marginTop: 8,
-    color: '#666',
-    fontWeight: '600'
-  }
+  container: { flex: 1, backgroundColor: '#F3F6F8', padding: 20 },
+  header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#0A66C2', marginTop: 10 },
+  previewContainer: { marginBottom: 20, width: '100%' },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  previewLabel: { fontWeight: 'bold', color: '#666' },
+  videoBox: { height: 230, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
+  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#DEE3E9', color: '#000' },
+  btn: { backgroundColor: '#0A66C2', padding: 18, borderRadius: 12, alignItems: 'center' },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  loaderContainer: { marginBottom: 20, alignItems: 'center' },
+  progressText: { marginTop: 8, color: '#666', fontWeight: '600' }
 });

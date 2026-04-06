@@ -25,7 +25,7 @@ export default function HomeStack() {
     headerTitleAlign: 'center', 
     headerTitleStyle: {
       fontWeight: '900',
-      color: '#FF1212',           // Your Red Title
+      color: '#FF1212',           
       fontSize: 20,
     },
     // This controls the Back Button color

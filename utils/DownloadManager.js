@@ -57,19 +57,24 @@ export const startDownload = async (directVideoUrl, platformName, onProgress) =>
       }
     };
 
-    xhr.onload = async () => {
-      if (xhr.status === 200 || xhr.status === 206) { // 206 is Partial Content, common for video
+xhr.onload = async () => {
+      if (xhr.status === 200 || xhr.status === 206) {
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64data = reader.result.split(',')[1];
           await RNFS.writeFile(filePath, base64data, 'base64');
+          
           const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+          
+          // Save to gallery
           await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-          resolve(true);
+          
+          // CHANGE THIS: Return the path instead of true
+          resolve(cleanPath); 
         };
         reader.readAsDataURL(xhr.response);
       } else {
-        reject(`Server error: ${xhr.status}. Link might have expired.`);
+        reject(`Server error: ${xhr.status}.`);
       }
     };
 
