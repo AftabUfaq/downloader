@@ -24,20 +24,39 @@ export default function SnapchatScreen({route}) {
     }
   }, [route.params?.initialUrl]);
 
-  const INJECTED_JS = `(function() {
+ const INJECTED_JS = `(function() {
     if (window.snappyScraperLoaded) return;
     window.snappyScraperLoaded = true;
+
     function findSnapLink() {
-      const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) return video.src;
+      // 1. Check for the deep-linked MP4 in the page scripts (Highest Quality)
+      const scripts = document.querySelectorAll('script');
+      for (let script of scripts) {
+        const content = script.textContent;
+        if (content.includes("mediaUrl") || content.includes("contentUrl")) {
+            // RegEx to find the direct media URL in the JSON blob
+            const match = content.match(/"mediaUrl":"(.*?)"/) || content.match(/"contentUrl":"(.*?)"/);
+            if (match && match[1]) return match[1].replace(/\\\\u002f/g, '/');
+        }
+      }
+
+      // 2. Fallback to OpenGraph Video (Standard Clean URL)
       const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
                    document.querySelector('meta[property="og:video"]');
-      return meta ? meta.content : null;
+      if (meta && meta.content) return meta.content;
+
+      // 3. Last resort: The rendered video tag
+      const video = document.querySelector('video');
+      if (video && video.src && !video.src.startsWith('blob')) return video.src;
+      
+      return null;
     }
+
     let attempts = 0;
     const checkInterval = setInterval(() => {
       attempts++;
       const link = findSnapLink();
+      
       if (link) {
         clearInterval(checkInterval);
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS', data: link }));

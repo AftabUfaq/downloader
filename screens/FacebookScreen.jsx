@@ -30,35 +30,22 @@ export default function FacebookScreen({ route }) {
     }
   }, [route.params?.initialUrl]);
 
-  const INJECTED_JS = `(function() {
-    try {
-      function findLink() {
-        const scripts = document.querySelectorAll('script');
-        for (let script of scripts) {
-          const content = script.textContent;
-          const match = content.match(/"browser_native_hd_url":"(.*?)"/) || 
-                        content.match(/"browser_native_sd_url":"(.*?)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
-          }
-        }
-        const ogVideo = document.querySelector('meta[property="og:video:secure_url"]') || 
-                        document.querySelector('meta[property="og:video"]');
-        return ogVideo ? ogVideo.content : null;
-      }
-      const initialLink = findLink();
-      if (initialLink) {
-        window.ReactNativeWebView.postMessage(initialLink);
-      } else {
-        setTimeout(() => {
-          const secondLink = findLink();
-          window.ReactNativeWebView.postMessage(secondLink || "not_found");
-        }, 2000);
-      }
-    } catch (e) {
-      window.ReactNativeWebView.postMessage("error");
+const INJECTED_JS = `(function() {
+  function findFBLink() {
+    const scripts = document.querySelectorAll('script');
+    for (let script of scripts) {
+      const content = script.textContent;
+      // Prioritize HD over SD
+      const hdMatch = content.match(/"browser_native_hd_url":"(.*?)"/);
+      const sdMatch = content.match(/"browser_native_sd_url":"(.*?)"/);
+      
+      const target = hdMatch ? hdMatch[1] : (sdMatch ? sdMatch[1] : null);
+      if (target) return target.replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
     }
-  })()`;
+    return null;
+  }
+  window.ReactNativeWebView.postMessage(findFBLink() || "not_found");
+})()`;
 
   const handleProcess = async () => {
     if (!url.includes('facebook.com') && !url.includes('fb.watch')) {

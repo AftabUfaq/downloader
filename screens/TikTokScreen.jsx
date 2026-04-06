@@ -22,44 +22,40 @@ export default function TikTokScreen({ route }) {
     }
   }, [route.params?.initialUrl]);
 
-  const TIKTOK_JS = `
-  (function() {
-    function log(msg) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'log', message: msg }));
-    }
-
-    function findLink() {
-      const scripts = document.querySelectorAll('script');
-      for (let i = 0; i < scripts.length; i++) {
-        const content = scripts[i].textContent;
-        if (content.includes("downloadAddr") || content.includes("video_url")) {
-          const match = content.match(/"downloadAddr":"(.*?)"/) ||
-                        content.match(/"video_url":"(.*?)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\\\u0026/g, '&');
-          }
+const TIKTOK_JS = `
+(function() {
+  function findCleanLink() {
+    // Look for the "play_addr" in the internal JSON state
+    const scripts = document.querySelectorAll('script');
+    for (let script of scripts) {
+      const content = script.textContent;
+      // TikTok's internal "SIGI_STATE" or "webapp.video-detail" contains the clean URL
+      if (content.includes("playAddr")) {
+        const match = content.match(/"playAddr":"(.*?)"/);
+        if (match && match[1]) {
+          return match[1].replace(/\\\\u0026/g, '&').replace(/\\\\u002f/g, '/');
         }
       }
-      const videoTag = document.querySelector('video');
-      if (videoTag && videoTag.src) return videoTag.src;
-      return null;
     }
+    
+    // Fallback: The Video Tag on mobile web is often the clean version
+    const video = document.querySelector('video');
+    if (video && video.src && !video.src.startsWith('blob')) return video.src;
+    
+    return null;
+  }
 
-    let attempts = 0;
-    const checkInterval = setInterval(() => {
-      attempts++;
-      const link = findLink();
-      if (link) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', data: link }));
-        clearInterval(checkInterval);
-      }
-      if (attempts >= 15) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: 'not_found' }));
-        clearInterval(checkInterval);
-      }
-    }, 2000);
-  })();
-  `;
+  let attempts = 0;
+  const interval = setInterval(() => {
+    const link = findCleanLink();
+    if (link) {
+      clearInterval(interval);
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', data: link }));
+    }
+    if (attempts++ > 10) clearInterval(interval);
+  }, 1000);
+})();
+`;
 
   const handleProcess = async () => {
     if (!url.toLowerCase().includes('tiktok.com')) {
@@ -133,8 +129,8 @@ export default function TikTokScreen({ route }) {
         <Text style={styles.title}>TikTok Downloader</Text>
       </View>
 
-      {/* --- VIDEO PREVIEW BOX --- */}
-      {previewPath ? (
+      {/* --- ONLY SHOW THIS IF A VIDEO EXISTS --- */}
+      {previewPath && (
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
             <Text style={styles.previewLabel}>Video Preview</Text>
@@ -144,35 +140,32 @@ export default function TikTokScreen({ route }) {
           </View>
           <View style={styles.videoContainer}>
             <WebView
-              originWhitelist={['*']}           // Allows any URL type (including file://)
-              allowFileAccess={true}            // Essential for Android local file reading
-              allowUniversalAccessFromFileURLs={true} // Allows the HTML to "reach out" to the file
+              key={previewPath} // Forces a fresh player on every new download
+              originWhitelist={['*']}
+              allowFileAccess={true}
+              allowUniversalAccessFromFileURLs={true}
               allowsFullscreenVideo={true}
               scrollEnabled={false}
               source={{
                 html: `
-      <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-        <video 
-          src="${previewPath}" 
-          controls 
-          autoplay 
-          playsinline
-          style="width:100%; height:100%; object-fit: contain;"
-        ></video>
-      </body>
-    `
+                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+                  <video 
+                    src="${previewPath}" 
+                    controls 
+                    autoplay 
+                    playsinline
+                    style="width:100%; height:100%; object-fit: contain;"
+                  ></video>
+                </body>
+                `
               }}
               style={styles.previewWebView}
             />
           </View>
         </View>
-      ) : (
-        <View style={styles.placeholderBox}>
-          <Play color="#eee" size={80} />
-          <Text style={{ color: '#ccc', marginTop: 10 }}>Download a video to see preview</Text>
-        </View>
       )}
 
+      {/* --- INPUT AREA MOVES UP AUTOMATICALLY IF NO PREVIEW --- */}
       <View style={styles.inputSection}>
         <TextInput
           style={styles.input}
