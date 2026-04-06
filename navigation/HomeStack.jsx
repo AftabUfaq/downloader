@@ -16,10 +16,10 @@ export default function HomeStack() {
   <Stack.Navigator 
   screenOptions={{ 
     headerStyle: { 
-      backgroundColor: '#FFFFFF', // Use a solid 6-digit hex (White)
+      backgroundColor: '#FFFFFF',
       elevation: 0,               
       shadowOpacity: 0,           
-      borderBottomWidth: 1,       // Optional: adds a tiny hair-line to see where header ends
+      borderBottomWidth: 1,       
       borderBottomColor: '#EEE',
     },
     headerTitleAlign: 'center', 
@@ -29,8 +29,8 @@ export default function HomeStack() {
       fontSize: 20,
     },
     // This controls the Back Button color
-    headerTintColor: '#00CC00',   // A solid Green for the back button
-    headerBackTitleVisible: false, // Optional: Hides the "Back" text on iOS, leaving just the arrow
+    headerTintColor: '#00CC00',  
+    headerBackTitleVisible: false, 
   }}
 >
       <Stack.Screen 

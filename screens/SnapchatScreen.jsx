@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ghost } from 'lucide-react-native';
-// 1. Import your working utility
-import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
+import RNFS from 'react-native-fs';
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import { requestStoragePermission } from '../utils/DownloadManager'; 
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
@@ -13,28 +14,41 @@ export default function SnapchatScreen({route}) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
 
+  // Lock to track the active request and prevent double downloads
+  const activeRequestId = useRef(null);
+
   useEffect(() => {
     if (route.params?.initialUrl) {
       setUrl(route.params.initialUrl);
     }
   }, [route.params?.initialUrl]);
 
-  // 2. Wrap in IIFE and add a small delay to ensure the video tag is rendered
+  // INJECTED_JS with internal browser lock and retry logic
   const INJECTED_JS = `(function() {
+    if (window.snappyScraperLoaded) return;
+    window.snappyScraperLoaded = true;
+
     function findSnapLink() {
       const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) {
-        return video.src;
-      }
+      if (video && video.src && !video.src.startsWith('blob')) return video.src;
       const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
                    document.querySelector('meta[property="og:video"]');
       return meta ? meta.content : null;
     }
 
-    setTimeout(() => {
+    let attempts = 0;
+    const checkInterval = setInterval(() => {
+      attempts++;
       const link = findSnapLink();
-      window.ReactNativeWebView.postMessage(link || "not_found");
-    }, 2000);
+      
+      if (link) {
+        clearInterval(checkInterval);
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS', data: link }));
+      } else if (attempts > 15) { // Stop after 7.5 seconds
+        clearInterval(checkInterval);
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ERROR', data: 'not_found' }));
+      }
+    }, 500);
   })()`;
 
   const handleDownload = async () => {
@@ -45,27 +59,84 @@ export default function SnapchatScreen({route}) {
     const hasPermission = await requestStoragePermission();
     if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
 
+    // Generate a new ID for this specific download session
+    activeRequestId.current = Date.now().toString();
+    
     setLoading(true);
     setProgress(0);
     setScrapingUrl(url);
   };
 
-  const onMessage = async (e) => {
-    const result = e.nativeEvent.data;
-    setScrapingUrl(''); // Close scraper
+  const saveSnapchatVideo = async (directVideoUrl) => {
+    let cleanUrl = directVideoUrl
+      .replace(/\\u002F/g, '/')
+      .replace(/\\u0026/g, '&')
+      .replace(/\\/g, '');
 
-    if (result === "not_found" || result === "error") {
+    const fileName = `Snapchat_${Date.now()}.mp4`;
+    const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
+
+    const options = {
+      fromUrl: cleanUrl,
+      toFile: filePath,
+      background: true,
+      headers: {
+        'User-Agent': DESKTOP_UA,
+        'Referer': 'https://www.snapchat.com/',
+        'Range': 'bytes=0-',
+      },
+      progress: (res) => {
+        if (res.contentLength > 0) {
+          const p = Math.round((res.bytesWritten / res.contentLength) * 100);
+          setProgress(p);
+        }
+      },
+    };
+
+    try {
+      const result = await RNFS.downloadFile(options).promise;
+      if (result.statusCode === 200 || result.statusCode === 206) {
+        const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
+        await RNFS.unlink(filePath);
+        return true;
+      } else {
+        throw new Error(`Server error: ${result.statusCode}`);
+      }
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const onMessage = async (e) => {
+    // 1. Immediately kill the WebView to stop the background script
+    setScrapingUrl('');
+
+    // 2. Check if we already handled this session
+    if (!activeRequestId.current) return;
+    
+    // 3. Consume the lock so no more messages can enter
+    activeRequestId.current = null;
+
+    let response;
+    try {
+      response = JSON.parse(e.nativeEvent.data);
+    } catch (err) {
       setLoading(false);
-      return Alert.alert("Error", "Could not find video. Is this a public Spotlight or Story?");
+      return;
+    }
+
+    if (response.type === "ERROR") {
+      setLoading(false);
+      return Alert.alert("Error", "Could not find video. Ensure the link is public.");
     }
 
     try {
-      // 3. Call the central downloader
-      await startDownload(result, 'Snapchat', (p) => setProgress(p));
-      Alert.alert("Success", "Snapchat video saved to gallery!");
+      await saveSnapchatVideo(response.data);
+      Alert.alert("Success", "Video saved to gallery!");
       setUrl('');
     } catch (err) {
-      Alert.alert("Download Failed", err.toString());
+      Alert.alert("Download Failed", "The video could not be saved. Please try again.");
     } finally {
       setLoading(false);
       setProgress(0);
@@ -94,7 +165,7 @@ export default function SnapchatScreen({route}) {
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#FFFC00" />
           <Text style={styles.progressText}>
-            {progress > 0 ? `Saving: ${progress}%` : 'Scraping Snapchat...'}
+            {progress > 0 ? `Saving: ${progress}%` : 'Processing...'}
           </Text>
         </View>
       )}
@@ -104,18 +175,20 @@ export default function SnapchatScreen({route}) {
         onPress={handleDownload}
         disabled={loading}
       >
-        <Text style={styles.btnText}>{loading ? 'Processing...' : 'Get Snapchat Video'}</Text>
+        <Text style={styles.btnText}>{loading ? 'Downloading...' : 'Get Snapchat Video'}</Text>
       </TouchableOpacity>
 
       {scrapingUrl !== '' && (
         <View style={{ height: 0, width: 0, position: 'absolute' }}>
           <WebView 
+            key={scrapingUrl} // Forces a fresh instance every time
             source={{ uri: scrapingUrl }} 
             injectedJavaScript={INJECTED_JS} 
-            userAgent={DESKTOP_UA} // Essential for bypassing mobile blocks
+            userAgent={DESKTOP_UA} 
             onMessage={onMessage} 
             javaScriptEnabled={true}
             domStorageEnabled={true}
+            incognito={true}
           />
         </View>
       )}
