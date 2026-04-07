@@ -1,4 +1,10 @@
 {
   "name": "downloader",
-  "displayName": "downloader"
+  "displayName": "downloader",
+  
+"react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-1872370171643223~7849354443",
+    "ios_app_id": "ca-app-pub-xxxxxxxx~xxxxxxxx"
+  }
+  
 }
