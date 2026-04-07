@@ -71,7 +71,7 @@ export default function YouTubeScreen({ route }) {
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); 
+    setScrapingUrl('');
 
     if (result === "not_found") {
       setLoading(false);
@@ -81,7 +81,7 @@ export default function YouTubeScreen({ route }) {
     try {
       // Important: Tell DownloadManager to use Desktop UA
       const localUri = await startDownload(result, 'YouTube', (p) => setProgress(p));
-      
+
       setPreviewPath(localUri);
       const newDownload = {
         id: Date.now().toString(),

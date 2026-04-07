@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { WebView } from 'react-native-webview';
 import { Pin, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
+import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
@@ -66,12 +66,12 @@ export default function PinterestScreen({ route }) {
     setPreviewPath(null); // Clear previous preview
     setLoading(true);
     setProgress(0);
-    setScrapingUrl(url); 
+    setScrapingUrl(url);
   };
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); 
+    setScrapingUrl('');
 
     if (result === "not_found") {
       setLoading(false);
@@ -81,7 +81,7 @@ export default function PinterestScreen({ route }) {
     try {
       // 1. Download and get local path
       const localUri = await startDownload(result, 'Pinterest', (p) => setProgress(p));
-      
+
       // 2. Set for Preview
       setPreviewPath(localUri);
 
@@ -132,7 +132,8 @@ export default function PinterestScreen({ route }) {
               allowUniversalAccessFromFileURLs={true}
               allowsFullscreenVideo={true}
               scrollEnabled={false}
-              source={{ html: `
+              source={{
+                html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
                   <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
                 </body>
@@ -143,16 +144,16 @@ export default function PinterestScreen({ route }) {
         </View>
       )}
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="Paste Pinterest Link..." 
+      <TextInput
+        style={styles.input}
+        placeholder="Paste Pinterest Link..."
         placeholderTextColor="#999"
-        onChangeText={setUrl} 
+        onChangeText={setUrl}
         value={url}
         autoCapitalize="none"
         editable={!loading}
       />
-      
+
       {loading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#BD081C" />
@@ -162,8 +163,8 @@ export default function PinterestScreen({ route }) {
         </View>
       )}
 
-      <TouchableOpacity 
-        style={[styles.btn, loading && { opacity: 0.6 }]} 
+      <TouchableOpacity
+        style={[styles.btn, loading && { opacity: 0.6 }]}
         onPress={handleProcess}
         disabled={loading}
       >
@@ -172,11 +173,11 @@ export default function PinterestScreen({ route }) {
 
       <View style={{ height: 0, width: 0, position: 'absolute' }}>
         {scrapingUrl !== '' && (
-          <WebView 
-            source={{ uri: scrapingUrl }} 
-            injectedJavaScript={INJECTED_JS} 
-            userAgent={DESKTOP_UA} 
-            onMessage={onMessage} 
+          <WebView
+            source={{ uri: scrapingUrl }}
+            injectedJavaScript={INJECTED_JS}
+            userAgent={DESKTOP_UA}
+            onMessage={onMessage}
           />
         )}
       </View>

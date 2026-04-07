@@ -31,7 +31,7 @@ const PLATFORMS = [
     target: 'TikTok', // Matches name="TikTok" in HomeStack
     keys: ['tiktok'], 
     color: '#00f2ea', 
-    url: "https://www.tiktok.com/@el_primo_istribitel/video/7612267299197783312?is_from_webapp=1&sender_device=pc" 
+    url: "https://www.tiktok.com/@alinaamir1/video/7619817948315667720?is_from_webapp=1&sender_device=pc" 
   },
   { 
     name: 'Instagram', 
@@ -47,7 +47,7 @@ const PLATFORMS = [
     target: 'Facebook', // Matches name="Facebook" in HomeStack
     keys: ['facebook', 'fb.watch'], 
     color: '#1877F2', 
-    url: "https://www.facebook.com/100063791587486/videos/1632232768013263" 
+    url: "https://www.facebook.com/share/r/18XFVPLS3c/" 
   },
   { 
     name: 'Twitter/X', 
@@ -57,14 +57,15 @@ const PLATFORMS = [
     color: '#000000', 
     url: "https://x.com/i/status/2040454818846945754" 
   },
-  { 
-    name: 'YouTube', 
-    icon: Video, 
-    target: 'YouTube', // Matches name="YouTube" in HomeStack
-    keys: ['youtube.com', 'youtu.be'], 
-    color: '#FF0000', 
-    url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5" 
+   { 
+    name: 'Snapchat', 
+    icon: Ghost, 
+    target: 'Snapchat', // Matches name="Snapchat" in HomeStack
+    keys: ['snapchat'], 
+    color: '#FFFC00', 
+    url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYeXFtbHJpdXduAZzmEYZJAZzmEYYwAAAAAQ" 
   },
+ 
   { 
     name: 'Pinterest', 
     icon: Pin, 
@@ -81,13 +82,13 @@ const PLATFORMS = [
     color: '#0A66C2', 
     url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464-26cM?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFK8i7oBDlehKrUJEBaxoob_uWNQicwmUNc" 
   },
-  { 
-    name: 'Snapchat', 
-    icon: Ghost, 
-    target: 'Snapchat', // Matches name="Snapchat" in HomeStack
-    keys: ['snapchat'], 
-    color: '#FFFC00', 
-    url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYZmd1bmZodHBiAZ1IRQVzAZ1IRQUIAAAAAQ" 
+   { 
+    name: 'YouTube', 
+    icon: Video, 
+    target: 'YouTube', // Matches name="YouTube" in HomeStack
+    keys: ['youtube.com', 'youtu.be'], 
+    color: '#FF0000', 
+    url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5" 
   },
 ];
 

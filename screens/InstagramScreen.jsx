@@ -19,8 +19,8 @@ export default function InstagramScreen({ route }) {
   // --- 1. INTERNAL PERMISSION FUNCTION ---
   const requestPermission = async () => {
     if (Platform.OS === 'android') {
-      const permission = Platform.Version >= 33 
-        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO 
+      const permission = Platform.Version >= 33
+        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO
         : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
       const granted = await PermissionsAndroid.request(permission);
       return granted === PermissionsAndroid.RESULTS.GRANTED;
@@ -81,7 +81,7 @@ export default function InstagramScreen({ route }) {
   }, [route.params?.initialUrl]);
 
   // --- 3. MORE AGGRESSIVE SCRAPER ---
- const INJECTED_JS = `(function() {
+  const INJECTED_JS = `(function() {
     console.log("Super Scraper Started");
 
     // Function to force-remove login popups that block loading
@@ -137,7 +137,7 @@ export default function InstagramScreen({ route }) {
   const handleProcess = async () => {
     console.log("[DEBUG] User clicked Download. Input URL:", url);
     if (!url.includes('instagram.com')) return Alert.alert("Error", "Please paste a valid Instagram link");
-    
+
     const hasPerm = await requestPermission();
     if (!hasPerm) return Alert.alert("Permission Error", "Need storage access to save videos");
 
@@ -163,7 +163,7 @@ export default function InstagramScreen({ route }) {
       const localUri = await downloadVideo(data.url);
 
       setPreviewPath(localUri);
-      
+
       const newDownload = {
         id: Date.now().toString(),
         title: `Instagram_${Date.now()}`,
@@ -206,7 +206,8 @@ export default function InstagramScreen({ route }) {
               key={previewPath}
               originWhitelist={['*']}
               allowFileAccess={true}
-              source={{ html: `
+              source={{
+                html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
                   <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
                 </body>
@@ -239,18 +240,18 @@ export default function InstagramScreen({ route }) {
 
       <View style={{ height: 0, width: 0, position: 'absolute' }}>
         {scrapingUrl !== '' && (
-         <WebView 
-  key="ig-scraper"
-  source={{ uri: scrapingUrl }} 
-  injectedJavaScript={INJECTED_JS} 
-  userAgent={DESKTOP_UA} 
-  onMessage={onMessage} 
-  domStorageEnabled={true}
-  javaScriptEnabled={true}
-  // Add these two for Instagram
-  startInLoadingState={true}
-  mediaPlaybackRequiresUserAction={false} 
-/>
+          <WebView
+            key="ig-scraper"
+            source={{ uri: scrapingUrl }}
+            injectedJavaScript={INJECTED_JS}
+            userAgent={DESKTOP_UA}
+            onMessage={onMessage}
+            domStorageEnabled={true}
+            javaScriptEnabled={true}
+            // Add these two for Instagram
+            startInLoadingState={true}
+            mediaPlaybackRequiresUserAction={false}
+          />
         )}
       </View>
     </View>

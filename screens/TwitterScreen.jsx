@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityInd
 import { WebView } from 'react-native-webview';
 import { X, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
+import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 
 const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1";
 
@@ -71,12 +71,12 @@ export default function TwitterScreen({ route }) {
     setPreviewPath(null); // Reset preview
     setLoading(true);
     setProgress(0);
-    setScrapingUrl(url); 
+    setScrapingUrl(url);
   };
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); 
+    setScrapingUrl('');
 
     if (result === "not_found") {
       setLoading(false);
@@ -86,7 +86,7 @@ export default function TwitterScreen({ route }) {
     try {
       // 1. Download video
       const localUri = await startDownload(result, 'Twitter', (p) => setProgress(p));
-      
+
       // 2. Update Preview
       setPreviewPath(localUri);
 
@@ -137,7 +137,8 @@ export default function TwitterScreen({ route }) {
               allowUniversalAccessFromFileURLs={true}
               allowsFullscreenVideo={true}
               scrollEnabled={false}
-              source={{ html: `
+              source={{
+                html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
                   <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
                 </body>
@@ -148,16 +149,16 @@ export default function TwitterScreen({ route }) {
         </View>
       )}
 
-      <TextInput 
-        style={styles.input} 
-        placeholder="Paste X / Twitter Link..." 
+      <TextInput
+        style={styles.input}
+        placeholder="Paste X / Twitter Link..."
         placeholderTextColor="#999"
-        onChangeText={setUrl} 
+        onChangeText={setUrl}
         value={url}
         autoCapitalize="none"
         editable={!loading}
       />
-      
+
       {loading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#000" />
@@ -167,8 +168,8 @@ export default function TwitterScreen({ route }) {
         </View>
       )}
 
-      <TouchableOpacity 
-        style={[styles.btn, loading && { opacity: 0.6 }]} 
+      <TouchableOpacity
+        style={[styles.btn, loading && { opacity: 0.6 }]}
         onPress={handleProcess}
         disabled={loading}
       >
@@ -178,14 +179,14 @@ export default function TwitterScreen({ route }) {
       {/* Hidden Scraper */}
       <View style={{ height: 0, width: 0, position: 'absolute' }}>
         {scrapingUrl !== '' && (
-          <WebView 
-          incognito={true}
-  domStorageEnabled={true}
-  javaScriptEnabled={true}
-            source={{ uri: scrapingUrl }} 
-            injectedJavaScript={INJECTED_JS} 
-            userAgent={MOBILE_UA} 
-            onMessage={onMessage} 
+          <WebView
+            incognito={true}
+            domStorageEnabled={true}
+            javaScriptEnabled={true}
+            source={{ uri: scrapingUrl }}
+            injectedJavaScript={INJECTED_JS}
+            userAgent={MOBILE_UA}
+            onMessage={onMessage}
           />
         )}
       </View>
