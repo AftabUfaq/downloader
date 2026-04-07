@@ -72,7 +72,7 @@ const PLATFORMS = [
     target: 'Pinterest', // Matches name="Pinterest" in HomeStack
     keys: ['pinterest'], 
     color: '#BD081C', 
-    url: "https://pin.it/SNmFxRDOv" 
+    url: "https://pin.it/63K783cCL" 
   },
   { 
     name: 'LinkedIn', 
