@@ -1,293 +1,178 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { Camera, XCircle } from 'lucide-react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import RNFS from 'react-native-fs';
-import { CameraRoll } from "@react-native-camera-roll/camera-roll";
-import { PermissionsAndroid } from 'react-native';
+import React, { useEffect, useState, useRef } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 
-const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+import { WebView } from "react-native-webview";
+import { Camera, XCircle } from "lucide-react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import RNFS from "react-native-fs";
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import { PermissionsAndroid } from "react-native";
+
+// Use a Mobile User Agent to get a simpler HTML structure
+const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1";
 
 export default function InstagramScreen({ route }) {
-  const [url, setUrl] = useState('');
-  const [scrapingUrl, setScrapingUrl] = useState('');
+  const [url, setUrl] = useState("");
+  const [scrapingUrl, setScrapingUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+  useEffect(() => {
+  if (route.params?.initialUrl) {
+    console.log("Received initial URL:", route.params.initialUrl);
+    setUrl(route.params.initialUrl);
+  }
+}, [route.params?.initialUrl]);
 
-  // --- 1. INTERNAL PERMISSION FUNCTION ---
+  // ================= PERMISSION =================
   const requestPermission = async () => {
-    if (Platform.OS === 'android') {
-      const permission = Platform.Version >= 33
-        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO
+    if (Platform.OS !== "android") return true;
+    try {
+      const permission = Platform.Version >= 33 
+        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO 
         : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
       const granted = await PermissionsAndroid.request(permission);
       return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      return false;
     }
-    return true;
   };
 
-  // --- 2. INTERNAL DOWNLOAD FUNCTION ---
-  const downloadVideo = (videoUrl) => {
-    return new Promise(async (resolve, reject) => {
-      console.log("[DEBUG] Starting Download for:", videoUrl);
-      const fileName = `Instagram_${Date.now()}.mp4`;
-      const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
+  // ================= DOWNLOAD (FIXED) =================
+  const downloadVideo = async (videoUrl) => {
+    const fileName = `Instagram_${Date.now()}.mp4`;
+    const filePath = `${RNFS.CachesDirectoryPath}/${fileName}`;
 
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', videoUrl, true);
-      xhr.setRequestHeader('User-Agent', DESKTOP_UA);
-      xhr.setRequestHeader('Referer', 'https://www.instagram.com/');
-      xhr.responseType = 'blob';
-
-      xhr.onprogress = (event) => {
-        if (event.lengthComputable) {
-          const p = Math.round((event.loaded / event.total) * 100);
-          setProgress(p);
-        }
+    return new Promise((resolve, reject) => {
+      const options = {
+        fromUrl: videoUrl,
+        toFile: filePath,
+        background: true,
+        begin: (res) => console.log("Download started"),
+        progress: (res) => {
+          const percent = Math.round((res.bytesWritten / res.contentLength) * 100);
+          setProgress(percent);
+        },
       };
 
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const base64data = reader.result.split(',')[1];
-            await RNFS.writeFile(filePath, base64data, 'base64');
-            const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-            await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-            console.log("[DEBUG] Download Success:", cleanPath);
-            resolve(cleanPath);
-          };
-          reader.readAsDataURL(xhr.response);
-        } else {
-          console.log("[DEBUG] XHR Failed with status:", xhr.status);
-          reject(xhr.status);
-        }
-      };
-
-      xhr.onerror = (e) => {
-        console.log("[DEBUG] XHR Network Error:", e);
-        reject("Network Error");
-      };
-      xhr.send();
+      RNFS.downloadFile(options).promise
+        .then(async () => {
+          // Save to Gallery
+          const cleanPath = Platform.OS === "android" ? `file://${filePath}` : filePath;
+          await CameraRoll.saveAsset(cleanPath, { type: "video", album: "SnappySave" });
+          resolve(cleanPath);
+        })
+        .catch(reject);
     });
   };
 
-  useEffect(() => {
-    if (route.params?.initialUrl) {
-      setUrl(route.params.initialUrl);
-    }
-  }, [route.params?.initialUrl]);
+  // ================= SCRAPER (UPDATED) =================
+  const INJECTED_JS = `
+    (function() {
+      let attempts = 0;
+      const maxAttempts = 30;
 
-  // --- 3. MORE AGGRESSIVE SCRAPER ---
-const INJECTED_JS = `(function() {
-  function sendLog(msg) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({
-      type: 'LOG',
-      message: msg
-    }));
-  }
+      const send = (type, payload = {}) => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type, ...payload }));
+      };
 
-  sendLog("🚀 Scraper Started");
-  sendLog("🌐 URL: " + window.location.href);
+      const scan = () => {
+        attempts++;
+        // Strategy 1: Standard Video Tag
+        let video = document.querySelector('video');
+        if (video && video.src && !video.src.startsWith('blob')) {
+          send("SUCCESS", { url: video.src });
+          return true;
+        }
 
-  function removeOverlays() {
-    const dialogs = document.querySelectorAll('div[role="dialog"]');
-    sendLog("🧹 Removing overlays: " + dialogs.length);
-    dialogs.forEach(e => e.remove());
-    document.body.style.overflow = 'auto';
-  }
+        // Strategy 2: Check for poster/meta if video is hidden
+        let metaVideo = document.querySelector('meta[property="og:video"]');
+        if (metaVideo && metaVideo.content) {
+          send("SUCCESS", { url: metaVideo.content });
+          return true;
+        }
 
-  function extractFromJSON(text) {
-    try {
-      let match;
+        if (attempts >= maxAttempts) {
+          send("ERROR");
+          return true;
+        }
+        return false;
+      };
 
-      match = text.match(/"playback_url":"(https:[^"]+\\.mp4[^"]*)"/);
-      if (match) {
-        sendLog("✅ Found playback_url");
-        return match[1];
-      }
-
-      match = text.match(/"video_url":"(https:[^"]+\\.mp4[^"]*)"/);
-      if (match) {
-        sendLog("✅ Found video_url");
-        return match[1];
-      }
-
-      match = text.match(/"video_versions":\\[\\{"type":\\d+,"url":"(https:[^"]+\\.mp4[^"]*)"/);
-      if (match) {
-        sendLog("✅ Found video_versions");
-        return match[1];
-      }
-
-    } catch(e) {
-      sendLog("❌ JSON extract error: " + e.message);
-    }
-
-    return null;
-  }
-
-  function findVideo() {
-    removeOverlays();
-
-    const scripts = document.querySelectorAll('script');
-    sendLog("📦 Script tags found: " + scripts.length);
-
-    for (let i = 0; i < scripts.length; i++) {
-      const content = scripts[i].textContent;
-      if (!content) continue;
-
-      const url = extractFromJSON(content);
-      if (url) {
-        return url.replace(/\\\\u0026/g, '&').replace(/\\\\/g, '');
-      }
-    }
-
-    // Meta fallback
-    const meta = document.querySelector('meta[property="og:video"]');
-    if (meta && meta.content) {
-      sendLog("✅ Found og:video");
-      return meta.content;
-    }
-
-    // Video tag fallback
-    const video = document.querySelector('video');
-    if (video) {
-      sendLog("🎥 Video tag found");
-
-      if (video.src && !video.src.startsWith('blob')) {
-        sendLog("✅ Video src found");
-        return video.src;
-      }
-
-      const source = video.querySelector('source');
-      if (source && source.src) {
-        sendLog("✅ Source tag found");
-        return source.src;
-      }
-    }
-
-    sendLog("❌ No video found in DOM");
-    return null;
-  }
-
-  let attempts = 0;
-
-  const interval = setInterval(() => {
-    attempts++;
-    sendLog("🔁 Attempt: " + attempts);
-
-    const link = findVideo();
-
-    if (link) {
-      sendLog("🎉 SUCCESS: " + link);
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'SUCCESS',
-        url: link
-      }));
-      clearInterval(interval);
-    }
-
-    if (attempts > 40) {
-      sendLog("⛔ FAILED after max attempts");
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'ERROR'
-      }));
-      clearInterval(interval);
-    }
-  }, 1500);
-})();`;
+      const timer = setInterval(() => {
+        if (scan()) clearInterval(timer);
+      }, 1500);
+    })();
+  `;
 
   const handleProcess = async () => {
-    console.log("[DEBUG] User clicked Download. Input URL:", url);
-    if (!url.includes('instagram.com')) return Alert.alert("Error", "Please paste a valid Instagram link");
-
+    if (!url.includes("instagram.com")) return Alert.alert("Invalid link");
     const hasPerm = await requestPermission();
-    if (!hasPerm) return Alert.alert("Permission Error", "Need storage access to save videos");
+    if (!hasPerm) return Alert.alert("Permission denied");
 
     setPreviewPath(null);
     setLoading(true);
     setProgress(0);
-    setScrapingUrl(url);
+
+    const match = url.match(/instagram\.com\/(reel|p)\/([^/?]+)/);
+    if (!match) {
+      setLoading(false);
+      return Alert.alert("Invalid format");
+    }
+
+    // Embed URL is still the best for scraping without login
+    setScrapingUrl(`https://www.instagram.com/${match[1]}/${match[2]}/embed/`);
   };
 
- const onMessage = async (e) => {
-  let data;
+  const onMessage = async (event) => {
+    let data;
+    try {
+      data = JSON.parse(event.nativeEvent.data);
+    } catch (e) { return; }
 
-  try {
-    data = JSON.parse(e.nativeEvent.data);
-  } catch (err) {
-    console.log("[DEBUG] Invalid JSON:", e.nativeEvent.data);
-    setLoading(false);
-    return;
-  }
+    if (data.type === "ERROR") {
+      setLoading(false);
+      setScrapingUrl("");
+      return Alert.alert("Video not found", "Instagram blocked the extraction. Try again in a moment.");
+    }
 
-  setScrapingUrl('');
+    if (data.type === "SUCCESS" && data.url) {
+      setScrapingUrl(""); // Close scraper immediately
+      try {
+        const localUri = await downloadVideo(data.url);
+        setPreviewPath(localUri);
 
-  if (data.type === 'LOG') {
-  console.log("[WEBVIEW LOG]:", data.message);
-  return;
-}
+        const newDownload = {
+          id: Date.now().toString(),
+          title: "Instagram Video",
+          path: localUri,
+          platform: "Instagram",
+          date: new Date().toLocaleDateString(),
+        };
 
-  // ❗ SAFETY CHECK
-  if (!data || !data.type) {
-    setLoading(false);
-    return Alert.alert("Error", "Invalid response from scraper");
-  }
+        const existing = await AsyncStorage.getItem("recent_downloads");
+        const downloads = existing ? JSON.parse(existing) : [];
+        await AsyncStorage.setItem("recent_downloads", JSON.stringify([newDownload, ...downloads]));
 
-  if (data.type === 'ERROR') {
-    setLoading(false);
-    return Alert.alert("Error", "Video not found or blocked by Instagram");
-  }
-
-  // ❗ VERY IMPORTANT FIX
-  if (!data.url) {
-    setLoading(false);
-    return Alert.alert("Error", "Failed to extract video URL");
-  }
-
-  console.log("[DEBUG] Video URL:", data.url);
-
-  // ❗ SAFE CHECK BEFORE includes
-  if (data.url && data.url.includes('.m3u8')) {
-    setLoading(false);
-    return Alert.alert(
-      "Unsupported Video",
-      "This video uses streaming (m3u8)"
-    );
-  }
-
-  try {
-    const localUri = await downloadVideo(data.url);
-
-    setPreviewPath(localUri);
-
-    const newDownload = {
-      id: Date.now().toString(),
-      title: `Instagram_${Date.now()}`,
-      path: localUri,
-      platform: 'Instagram',
-      date: new Date().toLocaleDateString(),
-    };
-
-    const existing = await AsyncStorage.getItem('recent_downloads');
-    const downloads = existing ? JSON.parse(existing) : [];
-
-    await AsyncStorage.setItem(
-      'recent_downloads',
-      JSON.stringify([newDownload, ...downloads])
-    );
-
-    Alert.alert("Success", "Video saved!");
-    setUrl('');
-  } catch (err) {
-    console.log("[DEBUG] Download Error:", err);
-    Alert.alert("Download Failed", "Instagram blocked this request");
-  } finally {
-    setLoading(false);
-  }
-};
+        Alert.alert("Success", "Video saved to gallery!");
+        setUrl("");
+      } catch (e) {
+        Alert.alert("Download Error", "Could not save video.");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -296,64 +181,78 @@ const INJECTED_JS = `(function() {
         <Text style={styles.title}>Instagram Downloader</Text>
       </View>
 
-      {previewPath && (
-        <View style={styles.previewContainer}>
-          <View style={styles.previewHeader}>
-            <Text style={styles.previewLabel}>Video Ready</Text>
-            <TouchableOpacity onPress={() => setPreviewPath(null)}>
-              <XCircle color="#ff0050" size={24} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.videoBox}>
-            <WebView
-              key={previewPath}
-              originWhitelist={['*']}
-              allowFileAccess={true}
-              source={{
-                html: `
-                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
-                </body>
-              `}}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      )}
+   {previewPath && (
+  <View style={styles.previewContainer}>
+    <View style={styles.previewHeader}>
+      <Text style={styles.previewLabel}>Preview Ready</Text>
+      <TouchableOpacity onPress={() => setPreviewPath(null)}>
+        <XCircle size={24} color="#ff0050" />
+      </TouchableOpacity>
+    </View>
+    <View style={styles.videoBox}>
+      <WebView
+        key={previewPath}
+        originWhitelist={["*"]}
+        // CRITICAL: These two props allow local file playback
+        allowFileAccess={true}
+        allowFileAccessFromFileURLs={true}
+        allowUniversalAccessFromFileURLs={true}
+        source={{
+          html: `
+            <html>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                  body { margin: 0; background: black; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                  video { width: 100%; max-height: 100%; border-radius: 15px; }
+                </style>
+              </head>
+              <body>
+                <video id="v" src="${previewPath}" controls autoplay playsinline></video>
+                <script>
+                  // Auto-play hack for some WebView versions
+                  document.getElementById('v').play();
+                </script>
+              </body>
+            </html>
+          `,
+        }}
+      />
+    </View>
+  </View>
+)}
 
       <TextInput
         style={styles.input}
-        placeholder="Paste Instagram Reel/Post Link..."
-        placeholderTextColor="#999"
-        onChangeText={setUrl}
+        placeholder="Paste Instagram Reel link..."
         value={url}
         editable={!loading}
+        onChangeText={setUrl}
       />
 
       {loading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#E1306C" />
-          <Text style={styles.progressText}>{progress > 0 ? `Downloading: ${progress}%` : 'Scraping Instagram...'}</Text>
+          <Text style={styles.progressText}>
+            {progress > 0 ? `Downloading ${progress}%` : "Extracting video..."}
+          </Text>
         </View>
       )}
 
-      <TouchableOpacity style={styles.btn} onPress={handleProcess} disabled={loading}>
-        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download Video'}</Text>
+      <TouchableOpacity style={styles.btn} disabled={loading} onPress={handleProcess}>
+        <Text style={styles.btnText}>{loading ? "Please Wait..." : "Download Video"}</Text>
       </TouchableOpacity>
 
-      <View style={{ height: 0, width: 0, position: 'absolute' }}>
-        {scrapingUrl !== '' && (
+      {/* Hidden Scraper WebView */}
+      <View style={{ height: 0, width: 0, opacity: 0 }}>
+        {scrapingUrl !== "" && (
           <WebView
-            key="ig-scraper"
             source={{ uri: scrapingUrl }}
             injectedJavaScript={INJECTED_JS}
-            userAgent={DESKTOP_UA}
+            userAgent={MOBILE_UA}
             onMessage={onMessage}
-            domStorageEnabled={true}
             javaScriptEnabled={true}
-            // Add these two for Instagram
-            startInLoadingState={true}
-            mediaPlaybackRequiresUserAction={false}
+            domStorageEnabled={true}
           />
         )}
       </View>
@@ -362,16 +261,16 @@ const INJECTED_JS = `(function() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#000', marginTop: 10 },
+  container: { flex: 1, backgroundColor: "#F8F9FA", padding: 20 },
+  header: { alignItems: "center", marginTop: 40, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: "bold", marginTop: 10 },
   previewContainer: { marginBottom: 20 },
-  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  previewLabel: { fontWeight: 'bold', color: '#666' },
-  videoBox: { height: 250, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000' },
-  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
-  btn: { backgroundColor: '#E1306C', padding: 18, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  loaderContainer: { marginBottom: 20, alignItems: 'center' },
-  progressText: { marginTop: 10, color: '#E1306C', fontWeight: '600' }
+  previewHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 5 },
+  previewLabel: { fontWeight: "bold", color: "#333" },
+  videoBox: { height: 230, borderRadius: 15, overflow: "hidden", backgroundColor: "#000" },
+  input: { backgroundColor: "#FFF", padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: "#eee", color: "#000" },
+  btn: { backgroundColor: "#E1306C", padding: 18, borderRadius: 12, alignItems: "center" },
+  btnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+  loaderContainer: { alignItems: "center", marginBottom: 20 },
+  progressText: { marginTop: 8, color: "#666" },
 });
