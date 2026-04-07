@@ -81,58 +81,123 @@ export default function InstagramScreen({ route }) {
   }, [route.params?.initialUrl]);
 
   // --- 3. MORE AGGRESSIVE SCRAPER ---
-  const INJECTED_JS = `(function() {
-    console.log("Super Scraper Started");
+const INJECTED_JS = `(function() {
+  function sendLog(msg) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({
+      type: 'LOG',
+      message: msg
+    }));
+  }
 
-    // Function to force-remove login popups that block loading
-    function clearOverlays() {
-      const overlays = document.querySelectorAll('div[role="presentation"], ._a9-z');
-      overlays.forEach(el => el.remove());
-      document.body.style.overflow = 'auto';
-    }
+  sendLog("🚀 Scraper Started");
+  sendLog("🌐 URL: " + window.location.href);
 
-    function findIGLink() {
-      clearOverlays();
+  function removeOverlays() {
+    const dialogs = document.querySelectorAll('div[role="dialog"]');
+    sendLog("🧹 Removing overlays: " + dialogs.length);
+    dialogs.forEach(e => e.remove());
+    document.body.style.overflow = 'auto';
+  }
 
-      // 1. Check all <script> tags for the raw JSON data (Best for Reels)
-      const scripts = document.querySelectorAll('script');
-      for (let s of scripts) {
-        const content = s.textContent;
-        if (content.includes("video_url")) {
-          // Regex to extract the URL from the JSON blob
-          const match = content.match(/"video_url":"(https:.*?\\.mp4.*?)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\\\u0026/g, '&').replace(/\\\\/g, '');
-          }
-        }
+  function extractFromJSON(text) {
+    try {
+      let match;
+
+      match = text.match(/"playback_url":"(https:[^"]+\\.mp4[^"]*)"/);
+      if (match) {
+        sendLog("✅ Found playback_url");
+        return match[1];
       }
 
-      // 2. Check for the 'og:video' Meta Tag
-      const meta = document.querySelector('meta[property="og:video"]');
-      if (meta && meta.content) return meta.content;
+      match = text.match(/"video_url":"(https:[^"]+\\.mp4[^"]*)"/);
+      if (match) {
+        sendLog("✅ Found video_url");
+        return match[1];
+      }
 
-      // 3. Check for standard video tags
-      const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) return video.src;
+      match = text.match(/"video_versions":\\[\\{"type":\\d+,"url":"(https:[^"]+\\.mp4[^"]*)"/);
+      if (match) {
+        sendLog("✅ Found video_versions");
+        return match[1];
+      }
 
-      return null;
+    } catch(e) {
+      sendLog("❌ JSON extract error: " + e.message);
     }
 
-    let attempts = 0;
-    const check = setInterval(() => {
-      const link = findIGLink();
-      attempts++;
-      console.log("Attempt " + attempts + ": " + (link ? "Link Found" : "Searching..."));
+    return null;
+  }
 
-      if (link) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'SUCCESS', url: link}));
-        clearInterval(check);
-      } else if (attempts > 20) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'ERROR', message: 'not_found'}));
-        clearInterval(check);
+  function findVideo() {
+    removeOverlays();
+
+    const scripts = document.querySelectorAll('script');
+    sendLog("📦 Script tags found: " + scripts.length);
+
+    for (let i = 0; i < scripts.length; i++) {
+      const content = scripts[i].textContent;
+      if (!content) continue;
+
+      const url = extractFromJSON(content);
+      if (url) {
+        return url.replace(/\\\\u0026/g, '&').replace(/\\\\/g, '');
       }
-    }, 1500);
-  })()`;
+    }
+
+    // Meta fallback
+    const meta = document.querySelector('meta[property="og:video"]');
+    if (meta && meta.content) {
+      sendLog("✅ Found og:video");
+      return meta.content;
+    }
+
+    // Video tag fallback
+    const video = document.querySelector('video');
+    if (video) {
+      sendLog("🎥 Video tag found");
+
+      if (video.src && !video.src.startsWith('blob')) {
+        sendLog("✅ Video src found");
+        return video.src;
+      }
+
+      const source = video.querySelector('source');
+      if (source && source.src) {
+        sendLog("✅ Source tag found");
+        return source.src;
+      }
+    }
+
+    sendLog("❌ No video found in DOM");
+    return null;
+  }
+
+  let attempts = 0;
+
+  const interval = setInterval(() => {
+    attempts++;
+    sendLog("🔁 Attempt: " + attempts);
+
+    const link = findVideo();
+
+    if (link) {
+      sendLog("🎉 SUCCESS: " + link);
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'SUCCESS',
+        url: link
+      }));
+      clearInterval(interval);
+    }
+
+    if (attempts > 40) {
+      sendLog("⛔ FAILED after max attempts");
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'ERROR'
+      }));
+      clearInterval(interval);
+    }
+  }, 1500);
+})();`;
 
   const handleProcess = async () => {
     console.log("[DEBUG] User clicked Download. Input URL:", url);
@@ -147,44 +212,82 @@ export default function InstagramScreen({ route }) {
     setScrapingUrl(url);
   };
 
-  const onMessage = async (e) => {
-    const data = JSON.parse(e.nativeEvent.data);
-    setScrapingUrl('');
+ const onMessage = async (e) => {
+  let data;
 
-    if (data.type === 'ERROR') {
-      console.log("[DEBUG] Scraper failed to find video");
-      setLoading(false);
-      return Alert.alert("Error", "Video not found. Ensure the post is public and not a Story.");
-    }
+  try {
+    data = JSON.parse(e.nativeEvent.data);
+  } catch (err) {
+    console.log("[DEBUG] Invalid JSON:", e.nativeEvent.data);
+    setLoading(false);
+    return;
+  }
 
-    console.log("[DEBUG] Video Link Found:", data.url);
+  setScrapingUrl('');
 
-    try {
-      const localUri = await downloadVideo(data.url);
+  if (data.type === 'LOG') {
+  console.log("[WEBVIEW LOG]:", data.message);
+  return;
+}
 
-      setPreviewPath(localUri);
+  // ❗ SAFETY CHECK
+  if (!data || !data.type) {
+    setLoading(false);
+    return Alert.alert("Error", "Invalid response from scraper");
+  }
 
-      const newDownload = {
-        id: Date.now().toString(),
-        title: `Instagram_${Date.now()}`,
-        path: localUri,
-        platform: 'Instagram',
-        date: new Date().toLocaleDateString(),
-      };
+  if (data.type === 'ERROR') {
+    setLoading(false);
+    return Alert.alert("Error", "Video not found or blocked by Instagram");
+  }
 
-      const existing = await AsyncStorage.getItem('recent_downloads');
-      const downloads = existing ? JSON.parse(existing) : [];
-      await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
+  // ❗ VERY IMPORTANT FIX
+  if (!data.url) {
+    setLoading(false);
+    return Alert.alert("Error", "Failed to extract video URL");
+  }
 
-      Alert.alert("Success", "Instagram video saved!");
-      setUrl('');
-    } catch (err) {
-      console.log("[DEBUG] Download Execution Error:", err);
-      Alert.alert("Error", "Instagram blocked the download request (Status: " + err + ")");
-    } finally {
-      setLoading(false);
-    }
-  };
+  console.log("[DEBUG] Video URL:", data.url);
+
+  // ❗ SAFE CHECK BEFORE includes
+  if (data.url && data.url.includes('.m3u8')) {
+    setLoading(false);
+    return Alert.alert(
+      "Unsupported Video",
+      "This video uses streaming (m3u8)"
+    );
+  }
+
+  try {
+    const localUri = await downloadVideo(data.url);
+
+    setPreviewPath(localUri);
+
+    const newDownload = {
+      id: Date.now().toString(),
+      title: `Instagram_${Date.now()}`,
+      path: localUri,
+      platform: 'Instagram',
+      date: new Date().toLocaleDateString(),
+    };
+
+    const existing = await AsyncStorage.getItem('recent_downloads');
+    const downloads = existing ? JSON.parse(existing) : [];
+
+    await AsyncStorage.setItem(
+      'recent_downloads',
+      JSON.stringify([newDownload, ...downloads])
+    );
+
+    Alert.alert("Success", "Video saved!");
+    setUrl('');
+  } catch (err) {
+    console.log("[DEBUG] Download Error:", err);
+    Alert.alert("Download Failed", "Instagram blocked this request");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <View style={styles.container}>

@@ -31,7 +31,7 @@ const PLATFORMS = [
     target: 'TikTok', // Matches name="TikTok" in HomeStack
     keys: ['tiktok'], 
     color: '#00f2ea', 
-    url: "https://www.tiktok.com/@alinaamir1/video/7619817948315667720?is_from_webapp=1&sender_device=pc" 
+    url: "https://www.tiktok.com/@sanorita_official/video/7618248251703266581?is_from_webapp=1&sender_device=pc" 
   },
   { 
     name: 'Instagram', 
