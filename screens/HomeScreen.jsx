@@ -8,18 +8,18 @@ import {
   Video,
   X
 } from 'lucide-react-native';
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState } from 'react'; // Added useEffect
 import {
   ScrollView,
-  StyleSheet, 
+  StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
 
 // --- 1. IMPORT ADS AND REMOTE CONFIG ---
-import mobileAds, { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
-import { useRemoteConfig } from '../hooks/useRemoteConfig'; 
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
 const PLATFORMS = [
   { 
@@ -94,14 +94,7 @@ export default function HomeScreen({ navigation }) {
   // --- 2. CALL THE REMOTE CONFIG HOOK ---
   const isAdsEnabled = useRemoteConfig();
 
-  // --- 3. INITIALIZE ADS SDK ---
-  useEffect(() => {
-    mobileAds()
-      .initialize()
-      .then(adapterStatuses => {
-        console.log('Ads SDK Initialized');
-      });
-  }, []);
+ 
 
   return (
     <View style={styles.mainWrapper}>
@@ -126,12 +119,12 @@ export default function HomeScreen({ navigation }) {
       </ScrollView>
 
       {/* --- 4. THE BANNER AD (FIXED AT BOTTOM) --- */}
-      {isAdsEnabled && (
+      {isAdsEnabled  && (
         <View style={styles.adContainer}>
           <BannerAd
             // SWAP TestIds.BANNER for your REAL ID below:
-            unitId="ca-app-pub-1872370171643223/2208977545" 
-            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            unitId={"ca-app-pub-9498660037072845/8567899891"}
+            size={BannerAdSize.INLINE_ADAPTIVE_BANNER}
             onAdFailedToLoad={(error) => {
               console.log('Ad failed to load: ', error);
             }}
