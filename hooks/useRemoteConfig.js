@@ -1,29 +1,29 @@
 // src/hooks/useRemoteConfig.js
+import { useState, useEffect } from 'react';
 import remoteConfig from '@react-native-firebase/remote-config';
-import { useEffect } from 'react';
 
-export const useRemoteConfig = () => { // Added 'export' here
+export const useRemoteConfig = () => {
+  const [isAdsEnabled, setIsAdsEnabled] = useState(false); // State to hold the button toggle
+
   useEffect(() => {
     const setupConfig = async () => {
       try {
         await remoteConfig().setDefaults({
           is_ads_enabled: false,
-          min_app_version: '1.0.0',
         });
 
-        if (__DEV__) {
-          await remoteConfig().setConfigSettings({
-            minimumFetchIntervalMillis: 0,
-          });
-        }
-
         await remoteConfig().fetchAndActivate();
-        console.log('Remote Config Ready. Ads Enabled:', remoteConfig().getValue('is_ads_enabled').asBoolean());
+        
+        // Get the value and update the state
+        const value = remoteConfig().getValue('is_ads_enabled').asBoolean();
+        setIsAdsEnabled(value);
       } catch (error) {
-        console.error('Remote Config failed to load', error);
+        console.error('Remote Config failed', error);
       }
     };
 
     setupConfig();
   }, []);
+
+  return isAdsEnabled; // Return the boolean
 };

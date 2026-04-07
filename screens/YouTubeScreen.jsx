@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { requestStoragePermission } from '../utils/DownloadManager';
+import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -18,6 +19,7 @@ export default function YouTubeScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+  const isAdsEnabled = useRemoteConfig()
   
   // Timeout ref to stop the loader if scraping takes too long
   const timeoutRef = useRef(null);
@@ -185,6 +187,11 @@ export default function YouTubeScreen({ route }) {
         <Video size={50} color="#FF0000" />
         <Text style={styles.title}>YouTube Downloader</Text>
       </View>
+      {isAdsEnabled && (
+        <TouchableOpacity style={{ backgroundColor: 'blue', padding: 10 }}>
+          <Text style={{ color: 'white' }}>Show Ads Now</Text>
+        </TouchableOpacity>
+      )}
 
       {previewPath && (
         <View style={styles.previewContainer}>
