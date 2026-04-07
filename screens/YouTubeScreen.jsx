@@ -1,17 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Video } from 'lucide-react-native';
+import { Video, XCircle } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 
-const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Mobile/15E148 Safari/604.1";
+// Desktop User Agent
+const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
 export default function YouTubeScreen({ route }) {
-  // HOOKS AT THE TOP - Guaranteed order
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [previewPath, setPreviewPath] = useState(null);
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -19,52 +21,49 @@ export default function YouTubeScreen({ route }) {
     }
   }, [route.params?.initialUrl]);
 
-  // 2. Advanced YouTube Scraper
-  // YouTube uses ytInitialPlayerResponse to store video stream data
+  // Desktop Scraper: Searches the streamingData formats
   const INJECTED_JS = `(function() {
-  function findMobileLink() {
-    // 1. Look for the actual video element (Most reliable on mobile UA)
-    const video = document.querySelector('video');
-    if (video && video.src && !video.src.startsWith('blob')) {
-      return video.src;
-    }
-    
-    // 2. Fallback to the 'ytInitialPlayerResponse' JSON
-    try {
-      if (window.ytInitialPlayerResponse) {
-        const streamingData = window.ytInitialPlayerResponse.streamingData;
-        const format = streamingData.formats.find(f => f.url);
-        if (format) return format.url;
-      }
-    } catch(e) {}
-    
-    return null;
-  }
+    function findDesktopLink() {
+      try {
+        // 1. Check for the global ytInitialPlayerResponse object
+        if (window.ytInitialPlayerResponse && window.ytInitialPlayerResponse.streamingData) {
+          const data = window.ytInitialPlayerResponse.streamingData;
+          // Get the highest quality format that contains a direct URL
+          const formats = data.formats || [];
+          const bestFormat = formats.reverse().find(f => f.url && f.mimeType.includes('video/mp4'));
+          if (bestFormat) return bestFormat.url;
+        }
 
-  // Mobile YouTube takes a bit to switch from the 'preview' to the 'player'
-  let attempts = 0;
-  const check = setInterval(() => {
-    const link = findMobileLink();
-    if (link) {
-      window.ReactNativeWebView.postMessage(link);
-      clearInterval(check);
+        // 2. Fallback: Search the video element
+        const video = document.querySelector('video');
+        if (video && video.src && !video.src.startsWith('blob')) return video.src;
+      } catch(e) {}
+      return null;
     }
-    attempts++;
-    if (attempts > 20) {
-      window.ReactNativeWebView.postMessage("not_found");
-      clearInterval(check);
-    }
-  }, 1500);
-})();`;
+
+    let attempts = 0;
+    const check = setInterval(() => {
+      const link = findDesktopLink();
+      if (link) {
+        window.ReactNativeWebView.postMessage(link);
+        clearInterval(check);
+      }
+      attempts++;
+      if (attempts > 15) { // 15 seconds max
+        window.ReactNativeWebView.postMessage("not_found");
+        clearInterval(check);
+      }
+    }, 1500);
+  })();`;
 
   const handleProcess = async () => {
     if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
-      return Alert.alert("Invalid Link", "Please paste a valid YouTube or Shorts link.");
+      return Alert.alert("Invalid Link", "Please paste a valid YouTube link.");
     }
-
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
+    if (!hasPermission) return;
 
+    setPreviewPath(null);
     setLoading(true);
     setProgress(0);
     setScrapingUrl(url);
@@ -72,72 +71,92 @@ export default function YouTubeScreen({ route }) {
 
   const onMessage = async (e) => {
     const result = e.nativeEvent.data;
-    setScrapingUrl(''); // Immediately kill WebView to keep hook order stable
+    setScrapingUrl(''); 
 
-    if (result === "not_found" || result === "error") {
+    if (result === "not_found") {
       setLoading(false);
-      return Alert.alert("Error", "Could not find a downloadable stream. YouTube often blocks direct scraping.");
+      return Alert.alert("Error", "Could not find video. Desktop links are often signature-protected.");
     }
 
     try {
-      // 3. Trigger Centralized Download
-      await startDownload(result, 'YouTube', (p) => setProgress(p));
+      // Important: Tell DownloadManager to use Desktop UA
+      const localUri = await startDownload(result, 'YouTube', (p) => setProgress(p));
+      
+      setPreviewPath(localUri);
+      const newDownload = {
+        id: Date.now().toString(),
+        title: `YouTube_${Date.now()}`,
+        path: localUri,
+        platform: 'YouTube',
+        date: new Date().toLocaleDateString(),
+      };
 
-      setTimeout(() => {
-        setLoading(false);
-        setProgress(0);
-        Alert.alert("Success", "YouTube video saved to gallery!");
-        setUrl('');
-      }, 500);
+      const existing = await AsyncStorage.getItem('recent_downloads');
+      const downloads = existing ? JSON.parse(existing) : [];
+      await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
+      Alert.alert("Success", "Video saved!");
+      setUrl('');
     } catch (err) {
+      Alert.alert("Download Failed", "YouTube's server blocked the request. Try a different video.");
+    } finally {
       setLoading(false);
-      Alert.alert("Download Failed", "Link found but download was blocked by YouTube's servers.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Video size={60} color="#FF0000" style={styles.icon} />
-      <Text style={styles.title}>YouTube Downloader</Text>
+      <View style={styles.header}>
+        <Video size={50} color="#FF0000" />
+        <Text style={styles.title}>YouTube Desktop Mode</Text>
+      </View>
+
+      {previewPath && (
+        <View style={styles.previewContainer}>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewLabel}>Preview</Text>
+            <TouchableOpacity onPress={() => setPreviewPath(null)}>
+              <XCircle color="#ff0050" size={24} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.videoBox}>
+            <WebView
+              originWhitelist={['*']}
+              allowFileAccess={true}
+              source={{ html: `<body style="margin:0;background:black;display:flex;justify-content:center;align-items:center;"><video src="${previewPath}" controls autoplay style="width:100%;height:100%;"></video></body>` }}
+              style={{ flex: 1 }}
+            />
+          </View>
+        </View>
+      )}
 
       <TextInput
         style={styles.input}
-        placeholder="Paste YouTube or Shorts Link..."
+        placeholder="Paste YouTube Link..."
         placeholderTextColor="#999"
         onChangeText={setUrl}
         value={url}
-        autoCapitalize="none"
         editable={!loading}
       />
 
       {loading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#FF0000" />
-          <Text style={styles.progressText}>
-            {progress > 0 ? `Downloading: ${progress}%` : 'Searching YouTube Streams...'}
-          </Text>
+          <Text style={styles.progressText}>{progress > 0 ? `Downloading: ${progress}%` : 'Scraping Desktop Site...'}</Text>
         </View>
       )}
 
-      <TouchableOpacity
-        style={[styles.btn, loading && { opacity: 0.6 }]}
-        onPress={handleProcess}
-        disabled={loading}
-      >
-        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download Video'}</Text>
+      <TouchableOpacity style={styles.btn} onPress={handleProcess} disabled={loading}>
+        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download HD Video'}</Text>
       </TouchableOpacity>
 
-      {/* Hidden WebView Container - Stable in the tree */}
       <View style={{ height: 0, width: 0, position: 'absolute' }}>
         {scrapingUrl !== '' && (
           <WebView
             source={{ uri: scrapingUrl }}
             injectedJavaScript={INJECTED_JS}
-            userAgent={MOBILE_UA} // Use the Mobile one here!
+            userAgent={DESKTOP_UA}
             onMessage={onMessage}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
           />
         )}
       </View>
@@ -146,51 +165,16 @@ export default function YouTubeScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 20,
-    justifyContent: 'center',
-  },
-  icon: {
-    alignSelf: 'center',
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  input: {
-    backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 12,
-    fontSize: 16,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#eee',
-    color: '#000',
-  },
-  btn: {
-    backgroundColor: '#FF0000',
-    padding: 18,
-    borderRadius: 15,
-    alignItems: 'center',
-  },
-  btnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loaderContainer: {
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  progressText: {
-    marginTop: 8,
-    color: '#666',
-    fontWeight: '600'
-  }
+  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
+  header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#000', marginTop: 10 },
+  previewContainer: { marginBottom: 20 },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  previewLabel: { fontWeight: 'bold', color: '#666' },
+  videoBox: { height: 230, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000' },
+  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
+  btn: { backgroundColor: '#FF0000', padding: 18, borderRadius: 12, alignItems: 'center' },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  loaderContainer: { marginBottom: 20, alignItems: 'center' },
+  progressText: { marginTop: 8, color: '#666', fontWeight: '600' }
 });

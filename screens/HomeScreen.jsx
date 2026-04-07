@@ -63,7 +63,7 @@ const PLATFORMS = [
     target: 'YouTube', // Matches name="YouTube" in HomeStack
     keys: ['youtube.com', 'youtu.be'], 
     color: '#FF0000', 
-    url: "https://youtube.com/shorts/DUq77WQcwSA?si=rfR9BKzrQRt_lQkt" 
+    url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5" 
   },
   { 
     name: 'Pinterest', 
