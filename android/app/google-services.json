@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "16659749453",
+    "project_id": "downloader-fe04e",
+    "storage_bucket": "downloader-fe04e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:16659749453:android:063136a067beccba6cda04",
+        "android_client_info": {
+          "package_name": "com.downloader"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCVC4Aeg0E0I7IHSDZHfG4evGj9rsIKRAU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
