@@ -1,7 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
-// Import all JSON files
 import en from './en.json';
 import es from './es.json';
 import fr from './fr.json';
@@ -20,12 +19,10 @@ i18n
       hi: { translation: hi },
       ur: { translation: ur },
     },
-    lng: 'en', // default language
+    lng: 'en', 
     fallbackLng: 'en',
     compatibilityJSON: 'v3',
-    interpolation: {
-      escapeValue: false, 
-    },
+    interpolation: { escapeValue: false }
   });
 
 export default i18n;

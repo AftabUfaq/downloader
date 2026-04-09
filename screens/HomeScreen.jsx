@@ -8,7 +8,7 @@ import {
   Video,
   X
 } from 'lucide-react-native';
-import React, { useState } from 'react'; // Added useEffect
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -16,95 +16,34 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-
+import { useTranslation } from 'react-i18next'; // 1. Import hook
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
-
-
-const PLATFORMS = [
-  {
-    name: 'TikTok',
-    icon: Music,
-    target: 'TikTok',
-    keys: ['tiktok'],
-    color: '#00f2ea',
-    url: "https://www.tiktok.com/@liwany247/video/7613816485668080903?is_from_webapp=1&sender_device=pc"
-  },
-  {
-    name: 'Instagram',
-    icon: Camera,
-    target: 'Instagram',
-    keys: ['instagram'],
-    color: '#E1306C',
-    url: "https://www.instagram.com/reel/DOrD8anCKNH/"
-  },
-  {
-    name: 'Facebook',
-    icon: Share,
-    target: 'Facebook',
-    keys: ['facebook', 'fb.watch'],
-    color: '#1877F2',
-    url: "https://www.facebook.com/share/r/18XFVPLS3c/"
-  },
-  {
-    name: 'Twitter/X',
-    icon: X,
-    target: 'Twitter',
-    keys: ['twitter', 'x.com'],
-    color: '#000000',
-    url: "https://x.com/i/status/2040454818846945754"
-  },
-  {
-    name: 'Snapchat',
-    icon: Ghost,
-    target: 'Snapchat',
-    keys: ['snapchat'],
-    color: '#FFFC00',
-    url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYeXFtbHJpdXduAZzmEYZJAZzmEYYwAAAAAQ"
-  },
-  {
-    name: 'Pinterest',
-    icon: Pin,
-    target: 'Pinterest',
-    keys: ['pinterest'],
-    color: '#BD081C',
-    url: "https://pin.it/63K783cCL"
-  },
-  {
-    name: 'LinkedIn',
-    icon: Briefcase,
-    target: 'LinkedIn',
-    keys: ['linkedin'],
-    color: '#0A66C2',
-    url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464-26cM?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAFK8i7oBDlehKrUJEBaxoob_uWNQicwmUNc"
-  },
-  {
-    name: 'YouTube',
-    icon: Video,
-    target: 'YouTube',
-    keys: ['youtube.com', 'youtu.be'],
-    color: '#FF0000',
-    url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5"
-  },
+// Define Platforms outside or inside, but we'll use t() inside the render
+const PLATFORMS_DATA = [
+  { name: 'tiktok', icon: Music, target: 'TikTok', color: '#00f2ea', url: "https://www.tiktok.com/@liwany247/video/7613816485668080903" },
+  { name: 'instagram', icon: Camera, target: 'Instagram', color: '#E1306C', url: "https://www.instagram.com/reel/DOrD8anCKNH/" },
+  { name: 'facebook', icon: Share, target: 'Facebook', color: '#1877F2', url: "https://www.facebook.com/share/r/18XFVPLS3c/" },
+  { name: 'twitter', icon: X, target: 'Twitter', color: '#000000', url: "https://x.com/i/status/2040454818846945754" },
+  { name: 'snapchat', icon: Ghost, target: 'Snapchat', color: '#FFFC00', url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYeXFtbHJpdXduAZzmEYZJAZzmEYYwAAAAAQ" },
+  { name: 'pinterest', icon: Pin, target: 'Pinterest', color: '#BD081C', url: "https://pin.it/63K783cCL" },
+  { name: 'linkedin', icon: Briefcase, target: 'LinkedIn', color: '#0A66C2', url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464" },
+  { name: 'youtube', icon: Video, target: 'YouTube', color: '#FF0000', url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5" },
 ];
 
 export default function HomeScreen({ navigation }) {
-  const [url, setUrl] = useState('');
-
-  // --- 2. CALL THE REMOTE CONFIG HOOK ---
+  const { t } = useTranslation(); // 2. Initialize translation
   const isAdsEnabled = useRemoteConfig();
-
-
 
   return (
     <View style={styles.mainWrapper}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.headerTitle}>SnappySave</Text>
+        {/* 3. Translated Header */}
+        <Text style={styles.headerTitle}>{t('home_title')}</Text>
 
-        {/* Platform Grid */}
         <View style={styles.gridContainer}>
-          {PLATFORMS.map((app) => (
+          {PLATFORMS_DATA.map((app) => (
             <TouchableOpacity
               key={app.name}
               onPress={() => {
@@ -113,20 +52,18 @@ export default function HomeScreen({ navigation }) {
               style={styles.gridItem}
             >
               <app.icon size={24} color={app.color} />
-              <Text style={styles.gridText}>{app.name}</Text>
+              {/* 4. Translated Platform Name */}
+              <Text style={styles.gridText}>{t(app.name)}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </ScrollView>
 
-      {/* --- 4. THE BANNER AD (FIXED AT BOTTOM) --- */}
       {isAdsEnabled && (
         <View style={styles.adContainer}>
           <BannerAd
-            // This uses a "fake" ad unit that always returns a result
             unitId={TestIds.BANNER}
             size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-            onAdLoaded={() => console.log('Test ad is visible!')}
           />
         </View>
       )}

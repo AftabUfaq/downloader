@@ -10,23 +10,19 @@ import {
   Dimensions
 } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Share, XCircle } from 'lucide-react-native';
+import { Share, XCircle } from 'lucide-react-native'; // Added XCircle for closing preview
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
-import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
 export default function FacebookScreen({ route }) {
-  const { t, i18n } = useTranslation();
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [previewPath, setPreviewPath] = useState(null);
-
-  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
+  const [previewPath, setPreviewPath] = useState(null); // State for Video Preview
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -34,29 +30,31 @@ export default function FacebookScreen({ route }) {
     }
   }, [route.params?.initialUrl]);
 
-  const INJECTED_JS = `(function() {
-    function findFBLink() {
-      const scripts = document.querySelectorAll('script');
-      for (let script of scripts) {
-        const content = script.textContent;
-        const hdMatch = content.match(/"browser_native_hd_url":"(.*?)"/);
-        const sdMatch = content.match(/"browser_native_sd_url":"(.*?)"/);
-        const target = hdMatch ? hdMatch[1] : (sdMatch ? sdMatch[1] : null);
-        if (target) return target.replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
-      }
-      return null;
+const INJECTED_JS = `(function() {
+  function findFBLink() {
+    const scripts = document.querySelectorAll('script');
+    for (let script of scripts) {
+      const content = script.textContent;
+      // Prioritize HD over SD
+      const hdMatch = content.match(/"browser_native_hd_url":"(.*?)"/);
+      const sdMatch = content.match(/"browser_native_sd_url":"(.*?)"/);
+      
+      const target = hdMatch ? hdMatch[1] : (sdMatch ? sdMatch[1] : null);
+      if (target) return target.replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
     }
-    window.ReactNativeWebView.postMessage(findFBLink() || "not_found");
-  })()`;
+    return null;
+  }
+  window.ReactNativeWebView.postMessage(findFBLink() || "not_found");
+})()`;
 
   const handleProcess = async () => {
     if (!url.includes('facebook.com') && !url.includes('fb.watch')) {
-      return Alert.alert(t('dl_error'), t('fb_invalid_link'));
+      return Alert.alert("Invalid Link", "Please paste a valid Facebook link.");
     }
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) return Alert.alert(t('perm_blocked_title'), t('perm_blocked_desc'));
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access is required.");
 
-    setPreviewPath(null);
+    setPreviewPath(null); // Clear old preview
     setLoading(true);
     setProgress(0);
     setScrapingUrl(url);
@@ -68,18 +66,22 @@ export default function FacebookScreen({ route }) {
 
     if (result === "not_found" || result === "error" || !result.startsWith('http')) {
       setLoading(false);
-      return Alert.alert(t('dl_error'), t('fb_error_extract'));
+      return Alert.alert("Error", "Could not find video. Ensure the post is Public.");
     }
 
     try {
+      // 1. Download and get the local path
       const localUri = await startDownload(result, 'Facebook', (p) => setProgress(p));
+      
+      // 2. Set for Preview
       setPreviewPath(localUri);
 
+      // 3. Save Metadata to Recent Downloads
       const newDownload = {
         id: Date.now().toString(),
         title: `Facebook_${Date.now()}`,
         path: localUri,
-        platform: 'Facebook',
+        platform: 'Facebook', // Identifies this as a FB video in the list
         date: new Date().toLocaleDateString(),
       };
 
@@ -87,10 +89,10 @@ export default function FacebookScreen({ route }) {
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
-      Alert.alert(t('continue'), t('fb_success'));
+      Alert.alert("Success", "Facebook video saved!");
       setUrl(''); 
     } catch (err) {
-      Alert.alert(t('fb_dl_failed'), err.toString());
+      Alert.alert("Download Failed", err.toString());
     } finally {
       setLoading(false);
       setProgress(0);
@@ -101,42 +103,48 @@ export default function FacebookScreen({ route }) {
     <View style={styles.container}>
       <View style={styles.headerArea}>
         <Share size={60} color="#1877F2" />
-        <Text style={styles.title}>{t('fb_header')}</Text>
+        <Text style={styles.title}>Facebook Downloader</Text>
       </View>
 
       {/* --- VIDEO PREVIEW UI --- */}
       {previewPath && (
         <View style={styles.previewBox}>
-          <View style={[styles.previewHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={styles.previewText}>{t('fb_preview')}</Text>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewText}>Preview Saved Video</Text>
             <TouchableOpacity onPress={() => setPreviewPath(null)}>
               <XCircle color="#ff0050" size={24} />
             </TouchableOpacity>
           </View>
           <View style={styles.videoWrapper}>
-            <WebView
-              originWhitelist={['*']}
-              allowFileAccess={true}
-              allowUniversalAccessFromFileURLs={true}
-              allowsFullscreenVideo={true}
-              scrollEnabled={false}
-              source={{
-                html: `
-                  <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                    <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
-                  </body>
-                `
-              }}
-              style={styles.previewWebView}
-            />
+          <WebView
+  originWhitelist={['*']}           // Allows any URL type (including file://)
+  allowFileAccess={true}            // Essential for Android local file reading
+  allowUniversalAccessFromFileURLs={true} // Allows the HTML to "reach out" to the file
+  allowsFullscreenVideo={true}
+  scrollEnabled={false}
+  source={{
+    html: `
+      <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
+        <video 
+          src="${previewPath}" 
+          controls 
+          autoplay 
+          playsinline
+          style="width:100%; height:100%; object-fit: contain;"
+        ></video>
+      </body>
+    `
+  }}
+  style={styles.previewWebView}
+/>
           </View>
         </View>
       )}
 
       <View style={styles.inputCard}>
         <TextInput 
-          style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
-          placeholder={t('fb_placeholder')} 
+          style={styles.input} 
+          placeholder="Paste Facebook Link..." 
           placeholderTextColor="#999"
           onChangeText={setUrl} 
           value={url}
@@ -148,9 +156,7 @@ export default function FacebookScreen({ route }) {
           <View style={styles.progressArea}>
             <ActivityIndicator color="#1877F2" size="small" />
             <Text style={styles.progressText}>
-              {progress > 0 
-                ? `${t('fb_downloading')} ${progress}%` 
-                : t('fb_finding')}
+              {progress > 0 ? `Downloading: ${progress}%` : 'Finding video link...'}
             </Text>
             <View style={styles.barBg}>
                 <View style={[styles.barFill, { width: `${progress}%` }]} />
@@ -164,7 +170,7 @@ export default function FacebookScreen({ route }) {
           disabled={loading}
         >
           <Text style={styles.btnText}>
-            {loading ? t('fb_btn_wait') : t('fb_btn_dl')}
+            {loading ? 'Please Wait...' : 'Download Video'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -196,9 +202,11 @@ const styles = StyleSheet.create({
   progressText: { marginTop: 10, fontSize: 13, color: '#1877F2', fontWeight: '600', marginBottom: 10 },
   barBg: { height: 6, width: '100%', backgroundColor: '#E4E6EB', borderRadius: 3, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: '#1877F2' },
+  
+  // Preview Styles
   previewBox: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8 },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   previewText: { fontWeight: 'bold', color: '#65676B' },
   videoWrapper: { height: 230, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
-  previewWebView: { flex: 1 }
+  webViewPlayer: { flex: 1 }
 });

@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   FlatList, 
- 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next'; // 1. Import hook
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 2. Import Storage
 
 const LANGUAGES = [
   { id: '1', name: 'English', subName: 'English', code: 'en' },
@@ -19,12 +20,24 @@ const LANGUAGES = [
 ];
 
 const LanguageScreen = ({ navigation }) => {
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const { t, i18n } = useTranslation(); // 3. Get translation functions
+  const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'en');
 
-  const handleContinue = () => {
-    // Navigate to the next screen in your setup flow
-    navigation.navigate('SecondaryLanguage');
+  // 4. Update language as soon as the user selects one
+  const handleSelectLanguage = (code) => {
+    setSelectedLanguage(code);
+    i18n.changeLanguage(code); // This changes the UI text instantly
   };
+
+const handleContinue = async () => {
+  try {
+    await AsyncStorage.setItem('user-language', selectedLanguage);
+    // ✅ MUST MATCH App.tsx EXACTLY (Capital L)
+    navigation.navigate('SecondaryLanguage'); 
+  } catch (e) {
+    console.log('Error saving language', e);
+  }
+};
 
   const renderItem = ({ item }) => {
     const isSelected = selectedLanguage === item.code;
@@ -32,7 +45,7 @@ const LanguageScreen = ({ navigation }) => {
     return (
       <TouchableOpacity 
         style={[styles.languageCard, isSelected && styles.selectedCard]} 
-        onPress={() => setSelectedLanguage(item.code)}
+        onPress={() => handleSelectLanguage(item.code)} // Change logic here
         activeOpacity={0.7}
       >
         <View>
@@ -44,7 +57,6 @@ const LanguageScreen = ({ navigation }) => {
           </Text>
         </View>
         
-        {/* Custom Radio Button */}
         <View style={[styles.radioCircle, isSelected && styles.selectedRadio]}>
           {isSelected && <View style={styles.radioInner} />}
         </View>
@@ -55,8 +67,9 @@ const LanguageScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Language</Text>
-        <Text style={styles.subtitle}>Select your primary language</Text>
+        {/* 6. Use t('key') instead of hardcoded text */}
+        <Text style={styles.title}>{t('language_title')}</Text>
+        <Text style={styles.subtitle}>{t('language_subtitle')}</Text>
       </View>
 
       <FlatList
@@ -69,37 +82,20 @@ const LanguageScreen = ({ navigation }) => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>{t('continue')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
+// ... styles remain the same ...
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#FFFFFF' 
-  },
-  header: { 
-    paddingHorizontal: 25, 
-    paddingTop: 40, 
-    marginBottom: 20 
-  },
-  title: { 
-    fontSize: 32, 
-    fontWeight: 'bold', 
-    color: '#000' 
-  },
-  subtitle: { 
-    fontSize: 16, 
-    color: '#666', 
-    marginTop: 5 
-  },
-  listContent: { 
-    paddingHorizontal: 20, 
-    paddingBottom: 120 
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  header: { paddingHorizontal: 25, paddingTop: 40, marginBottom: 20 },
+  title: { fontSize: 32, fontWeight: 'bold', color: '#000' },
+  subtitle: { fontSize: 16, color: '#666', marginTop: 5 },
+  listContent: { paddingHorizontal: 20, paddingBottom: 120 },
   languageCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -111,23 +107,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  selectedCard: {
-    borderColor: '#FFE600', // Snappy Save Yellow
-    backgroundColor: '#FFFBE6',
-  },
-  languageName: { 
-    fontSize: 18, 
-    fontWeight: '700', 
-    color: '#333' 
-  },
-  languageSub: { 
-    fontSize: 14, 
-    color: '#999', 
-    marginTop: 2 
-  },
-  selectedText: { 
-    color: '#000' 
-  },
+  selectedCard: { borderColor: '#FFE600', backgroundColor: '#FFFBE6' },
+  languageName: { fontSize: 18, fontWeight: '700', color: '#333' },
+  languageSub: { fontSize: 14, color: '#999', marginTop: 2 },
+  selectedText: { color: '#000' },
   radioCircle: {
     height: 24,
     width: 24,
@@ -137,22 +120,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selectedRadio: { 
-    borderColor: '#000' 
-  },
-  radioInner: {
-    height: 12,
-    width: 12,
-    borderRadius: 6,
-    backgroundColor: '#000',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    padding: 20,
-    backgroundColor: '#FFF',
-  },
+  selectedRadio: { borderColor: '#000' },
+  radioInner: { height: 12, width: 12, borderRadius: 6, backgroundColor: '#000' },
+  footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: '#FFF' },
   button: {
     backgroundColor: '#FFE600',
     paddingVertical: 18,
@@ -164,11 +134,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  buttonText: { 
-    fontSize: 18, 
-    fontWeight: 'bold', 
-    color: '#000' 
-  },
+  buttonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
 });
 
 export default LanguageScreen;

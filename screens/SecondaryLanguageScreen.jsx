@@ -7,6 +7,8 @@ import {
   FlatList, 
   SafeAreaView 
 } from 'react-native';
+import { useTranslation } from 'react-i18next'; // 1. Import hook
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LANGUAGES = [
   { id: '1', name: 'English', subName: 'English', code: 'en' },
@@ -18,11 +20,23 @@ const LANGUAGES = [
 ];
 
 const SecondaryLanguageScreen = ({ navigation }) => {
-  const [selectedLanguage, setSelectedLanguage] = useState('es'); // Default to something different
+  const { t, i18n } = useTranslation(); // 2. Initialize translation
+  const [selectedLanguage, setSelectedLanguage] = useState(''); 
 
-  const handleContinue = () => {
-    // Navigate to Permissions next
-    navigation.navigate('Permissions');
+  const handleLanguageSelect = (code) => {
+    setSelectedLanguage(code);
+   
+     i18n.changeLanguage(code); 
+  };
+
+  const handleContinue = async () => {
+    try {
+      // 3. Save secondary language choice
+      await AsyncStorage.setItem('secondary-language', selectedLanguage);
+      navigation.navigate('Permissions');
+    } catch (e) {
+      console.error("Failed to save secondary language", e);
+    }
   };
 
   const renderItem = ({ item }) => {
@@ -30,7 +44,7 @@ const SecondaryLanguageScreen = ({ navigation }) => {
     return (
       <TouchableOpacity 
         style={[styles.languageCard, isSelected && styles.selectedCard]} 
-        onPress={() => setSelectedLanguage(item.code)}
+        onPress={() => handleLanguageSelect(item.code)}
         activeOpacity={0.7}
       >
         <View>
@@ -47,8 +61,9 @@ const SecondaryLanguageScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Secondary Language</Text>
-        <Text style={styles.subtitle}>Choose an additional language for content</Text>
+        {/* 4. Apply Translation Keys */}
+        <Text style={styles.title}>{t('secondary_title')}</Text>
+        <Text style={styles.subtitle}>{t('secondary_subtitle')}</Text>
       </View>
 
       <FlatList
@@ -61,13 +76,14 @@ const SecondaryLanguageScreen = ({ navigation }) => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Finish Setup</Text>
+          <Text style={styles.buttonText}>{t('finish_setup')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 };
 
+// ... Styles remain exactly as you have them ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingHorizontal: 25, paddingTop: 40, marginBottom: 20 },

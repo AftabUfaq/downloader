@@ -4,19 +4,15 @@ import { WebView } from 'react-native-webview';
 import { Briefcase, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
-import { useTranslation } from 'react-i18next';
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
 export default function LinkedInScreen({ route }) {
-  const { t, i18n } = useTranslation();
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
-
-  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -51,10 +47,10 @@ export default function LinkedInScreen({ route }) {
 
   const handleProcess = async () => {
     if (!url.includes('linkedin.com')) {
-      return Alert.alert(t('dl_error'), t('li_invalid_link'));
+      return Alert.alert("Invalid Link", "Please paste a valid LinkedIn post link.");
     }
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) return Alert.alert(t('perm_blocked_title'), t('perm_blocked_desc'));
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
 
     setPreviewPath(null);
     setLoading(true);
@@ -68,7 +64,7 @@ export default function LinkedInScreen({ route }) {
 
     if (result === "not_found") {
       setLoading(false);
-      return Alert.alert(t('dl_error'), t('li_error_extract'));
+      return Alert.alert("Error", "Could not find video. Ensure the post is public.");
     }
 
     try {
@@ -87,10 +83,10 @@ export default function LinkedInScreen({ route }) {
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
-      Alert.alert(t('continue'), t('li_success'));
+      Alert.alert("Success", "LinkedIn video saved!");
       setUrl('');
     } catch (err) {
-      Alert.alert(t('dl_error'), t('li_dl_failed'));
+      Alert.alert("Download Failed", "Check your connection.");
     } finally {
       setLoading(false);
       setProgress(0);
@@ -101,28 +97,37 @@ export default function LinkedInScreen({ route }) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Briefcase size={50} color="#0A66C2" />
-        <Text style={styles.title}>{t('li_header')}</Text>
+        <Text style={styles.title}>LinkedIn Downloader</Text>
       </View>
 
+      {/* --- FIXED VIDEO PREVIEW PLAYER --- */}
       {previewPath && (
         <View style={styles.previewContainer}>
-          <View style={[styles.previewHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={styles.previewLabel}>{t('li_preview')}</Text>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewLabel}>Video Ready</Text>
             <TouchableOpacity onPress={() => setPreviewPath(null)}>
               <XCircle color="#ff0050" size={24} />
             </TouchableOpacity>
           </View>
           <View style={styles.videoBox}>
             <WebView
+              // CRITICAL: These 3 props allow the video to play from storage
               originWhitelist={['*']}
               allowFileAccess={true}
               allowUniversalAccessFromFileURLs={true}
+              
               allowsFullscreenVideo={true}
               scrollEnabled={false}
               javaScriptEnabled={true}
               source={{ html: `
                 <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
+                  <video 
+                    src="${previewPath}" 
+                    controls 
+                    autoplay 
+                    playsinline
+                    style="width:100%; height:100%; object-fit: contain;">
+                  </video>
                 </body>
               `}}
               style={{ flex: 1 }}
@@ -132,8 +137,8 @@ export default function LinkedInScreen({ route }) {
       )}
 
       <TextInput 
-        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
-        placeholder={t('li_placeholder')} 
+        style={styles.input} 
+        placeholder="Paste LinkedIn Post Link..." 
         placeholderTextColor="#999"
         onChangeText={setUrl} 
         value={url}
@@ -145,7 +150,7 @@ export default function LinkedInScreen({ route }) {
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#0A66C2" />
           <Text style={styles.progressText}>
-            {progress > 0 ? `${t('li_downloading')} ${progress}%` : t('li_analyzing')}
+            {progress > 0 ? `Downloading: ${progress}%` : 'Analyzing Post...'}
           </Text>
         </View>
       )}
@@ -155,7 +160,7 @@ export default function LinkedInScreen({ route }) {
         onPress={handleProcess}
         disabled={loading}
       >
-        <Text style={styles.btnText}>{loading ? t('li_btn_wait') : t('li_btn_dl')}</Text>
+        <Text style={styles.btnText}>{loading ? 'Please Wait...' : 'Download Video'}</Text>
       </TouchableOpacity>
 
       {scrapingUrl !== '' && (
@@ -177,7 +182,7 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#0A66C2', marginTop: 10 },
   previewContainer: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8 },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   previewLabel: { fontWeight: 'bold', color: '#666' },
   videoBox: { height: 230, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
   input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#DEE3E9', color: '#000' },

@@ -4,13 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import { PlayCircle, Trash2, Clock, Video, XCircle } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next'; // 1. Import
 
 const { width, height } = Dimensions.get('window');
 
 export default function DownloadsScreen() {
+  const { t, i18n } = useTranslation(); // 2. Initialize
   const [list, setList] = useState([]);
-  const [playingPath, setPlayingPath] = useState(null); // Track which video is playing
+  const [playingPath, setPlayingPath] = useState(null);
   const isFocused = useIsFocused();
+  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   const loadDownloads = async () => {
     try {
@@ -26,8 +29,7 @@ export default function DownloadsScreen() {
   }, [isFocused]);
 
   const handlePlay = (path) => {
-    if (!path) return Alert.alert("Error", "Invalid file path");
-    // Set the path to open the Modal player
+    if (!path) return Alert.alert(t('dl_error'), t('dl_invalid_path'));
     setPlayingPath(path);
   };
 
@@ -39,9 +41,12 @@ export default function DownloadsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      {/* Header with RTL support */}
+      <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
         <Clock color="#00f2ea" size={28} />
-        <Text style={styles.headerTitle}>Recent Downloads</Text>
+        <Text style={[styles.headerTitle, { marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
+          {t('dl_header')}
+        </Text>
       </View>
 
       {/* --- VIDEO PLAYER MODAL --- */}
@@ -53,8 +58,8 @@ export default function DownloadsScreen() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.playerBox}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Playing Video</Text>
+            <View style={[styles.modalHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <Text style={styles.modalTitle}>{t('dl_playing')}</Text>
               <TouchableOpacity onPress={() => setPlayingPath(null)}>
                 <XCircle color="#ff0050" size={30} />
               </TouchableOpacity>
@@ -84,16 +89,16 @@ export default function DownloadsScreen() {
         data={list}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.info}>
-              <Text style={styles.videoTitle} numberOfLines={1}>
-                {item.platform ? `[${item.platform}] ` : ''}{item.title || "Video"}
+          <View style={[styles.card, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+            <View style={[styles.info, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+              <Text style={[styles.videoTitle, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+                {item.platform ? `[${item.platform}] ` : ''}{item.title || t('dl_video')}
               </Text>
               <Text style={styles.date}>{item.date}</Text>
             </View>
             
-            <View style={styles.actions}>
-              <TouchableOpacity onPress={() => handlePlay(item.path)} style={{ marginRight: 15 }}>
+            <View style={[styles.actions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+              <TouchableOpacity onPress={() => handlePlay(item.path)} style={{ marginHorizontal: 15 }}>
                 <PlayCircle color="#00f2ea" size={32} />
               </TouchableOpacity>
               
@@ -106,7 +111,7 @@ export default function DownloadsScreen() {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Video color="#eee" size={80} />
-            <Text style={styles.emptyText}>No downloads yet.</Text>
+            <Text style={styles.emptyText}>{t('dl_empty')}</Text>
           </View>
         }
       />
@@ -116,13 +121,12 @@ export default function DownloadsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', marginTop: 50, marginBottom: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', marginLeft: 10, color: '#000' },
+  header: { alignItems: 'center', marginTop: 50, marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
   card: {
     backgroundColor: '#FFF',
     padding: 15,
     borderRadius: 15,
-    flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
     elevation: 3,
@@ -130,31 +134,12 @@ const styles = StyleSheet.create({
   info: { flex: 1 },
   videoTitle: { fontSize: 16, fontWeight: '700', color: '#333' },
   date: { fontSize: 12, color: '#999', marginTop: 4 },
-  actions: { flexDirection: 'row', alignItems: 'center' },
+  actions: { alignItems: 'center' },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
   emptyText: { textAlign: 'center', marginTop: 10, color: '#999', fontSize: 16 },
-
-  // Modal Styles
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playerBox: {
-    width: width * 0.95,
-    height: height * 0.6,
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    overflow: 'hidden',
-    paddingBottom: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 15,
-  },
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
+  playerBox: { width: width * 0.95, height: height * 0.6, backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', paddingBottom: 10 },
+  modalHeader: { justifyContent: 'space-between', alignItems: 'center', padding: 15 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   webviewWrapper: { flex: 1, backgroundColor: '#000' }
 });
