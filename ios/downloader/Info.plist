@@ -37,6 +37,8 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-9498660037072845~4884890046</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need access to your library to save downloaded videos.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
