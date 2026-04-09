@@ -5,10 +5,9 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   ScrollView, 
+ 
   StatusBar,
-  Switch,
-  Linking,
-  Platform
+  Switch
 } from 'react-native';
 import { 
   Moon, 
@@ -19,13 +18,11 @@ import {
   Info, 
   Crown,
   ChevronRight,
-  Sun,
-  Languages,
-  MessageCircle
+  Sun
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const SettingsScreen = ({ navigation }) => {
+const SettingsScreen = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Dynamic Theme Colors
@@ -38,61 +35,11 @@ const SettingsScreen = ({ navigation }) => {
     border: isDarkMode ? '#333333' : '#EEEEEE',
   };
 
-  // --- HANDLER FUNCTIONS ---
-
-const handleRateUs = () => {
-  // FROM SCREENSHOT: Android Package Name
-  const GOOGLE_PACKAGE_NAME = 'com.downloader'; 
-  
-  // FROM SCREENSHOT: iOS Bundle ID
-  const IOS_BUNDLE_ID = 'org.reactjs.native.example.downloader';
-  
-  // PENDING: This will be the 10-digit number from App Store Connect
-  const APPLE_STORE_ID = 'YOUR_NUMERIC_ID'; 
-
-  const url = Platform.OS === 'android'
-    ? `market://details?id=${GOOGLE_PACKAGE_NAME}`
-    : `itms-apps://itunes.apple.com/app/id${APPLE_STORE_ID}?action=write-review`;
-
-  Linking.openURL(url).catch(() => {
-    // Fallback if Store app isn't found
-    const webUrl = Platform.OS === 'android'
-      ? `https://play.google.com/store/apps/details?id=${GOOGLE_PACKAGE_NAME}`
-      : `https://apps.apple.com/app/id${APPLE_STORE_ID}`;
-    Linking.openURL(webUrl);
-  });
-};
-
-const handleContactSupport = () => {
-    const email = 'sajjadamin1924@gmail.com'; 
-    const subject = 'SnappySave Support Request';
-    Linking.openURL(`mailto:${email}?subject=${subject}`);
-  };
-
-  // Handler for WhatsApp
-  const handleWhatsApp = () => {
-   
-    const phoneNumber = '923409797323'; 
-    const message = 'Hello Sajjad, I need help with Snappy Save.';
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-
-    Linking.openURL(url).catch(() => {
-      Linking.openURL(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`);
-    });
-  };
-
-  const handleShareApp = () => {
-    const shareMessage = "Check out Snappy Save! The fastest way to save your favorite media.";
-    const url = "https://snappysave.com"; // Your website or store link
-    Linking.openURL(`sms:&body=${shareMessage} ${url}`);
-  };
-
   const SettingItem = ({ icon: Icon, title, subtitle, showSwitch, onPress }) => (
     <TouchableOpacity 
       style={[styles.card, { backgroundColor: theme.card }]} 
       onPress={onPress}
       disabled={showSwitch}
-      activeOpacity={0.7}
     >
       <View style={[styles.iconContainer, { backgroundColor: theme.iconBg }]}>
         <Icon size={22} color={isDarkMode ? '#BB86FC' : '#2196F3'} strokeWidth={2} />
@@ -117,18 +64,17 @@ const handleContactSupport = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={theme.background} />
       
+      {/* --- CLEAN SIMPLE HEADER --- */}
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Settings</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.headIcon} onPress={handleShareApp}>
-            <Share2 size={22} color={theme.text} />
-          </TouchableOpacity>
+          <TouchableOpacity style={styles.headIcon}><Share2 size={22} color={theme.text} /></TouchableOpacity>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* PREMIUM CARD */}
+        {/* --- PREMIUM CARD --- */}
         <TouchableOpacity style={styles.premiumCard}>
           <View style={styles.premiumIconCircle}>
             <Crown size={24} color="#FFF" fill="#FFF" />
@@ -139,7 +85,7 @@ const handleContactSupport = () => {
           </View>
         </TouchableOpacity>
 
-        {/* APPEARANCE */}
+        {/* --- SETTINGS LIST --- */}
         <Text style={[styles.sectionLabel, { color: theme.subText }]}>Appearance</Text>
         <SettingItem 
           icon={isDarkMode ? Moon : Sun} 
@@ -148,44 +94,24 @@ const handleContactSupport = () => {
           showSwitch={true}
         />
 
-        {/* LOCALIZATION */}
-        <Text style={[styles.sectionLabel, { color: theme.subText }]}>Language</Text>
-        <SettingItem 
-          icon={Languages} 
-          title="Change Languages" 
-          subtitle="Update primary or secondary languages" 
-          onPress={() => navigation.navigate('Language')}
-        />
-
-        {/* SUPPORT & LEGAL */}
         <Text style={[styles.sectionLabel, { color: theme.subText }]}>General</Text>
         <SettingItem 
           icon={Star} 
           title="Rate Us" 
-          subtitle="Enjoying our app? Give us 5 stars!" 
-          onPress={handleRateUs}
+          subtitle="Enjoying our app? Give us a 5 star." 
         />
         <SettingItem 
           icon={ShieldCheck} 
           title="Privacy Policy" 
-          subtitle="Read our data protection terms" 
-          onPress={() => navigation.navigate('PrivacyPolicy')}
+          subtitle="Read our terms and conditions." 
         />
-       <SettingItem 
-  icon={Headphones} 
-  title="Email Support" 
-  subtitle="sajjadamin1924@gmail.com" 
-  onPress={handleContactSupport}
-/>
+        <SettingItem 
+          icon={Headphones} 
+          title="Contact Support" 
+          subtitle="Need help? Reach out to us." 
+        />
 
-<SettingItem 
-  icon={MessageCircle} // You can use MessageCircle if you have it imported
-  title="WhatsApp Support" 
-  subtitle="Chat with us on WhatsApp" 
-  onPress={handleWhatsApp}
-/>
-
-        {/* FOOTER */}
+        {/* --- FOOTER --- */}
         <View style={styles.footer}>
           <Text style={[styles.versionText, { color: theme.subText }]}>SnappySave v1.0.0</Text>
         </View>
@@ -209,10 +135,10 @@ const styles = StyleSheet.create({
   headIcon: { marginLeft: 15 },
   
   scrollContent: { padding: 20 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10, marginLeft: 5, letterSpacing: 1.2 },
+  sectionLabel: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', marginBottom: 10, marginLeft: 5, letterSpacing: 1 },
 
   premiumCard: {
-    backgroundColor: '#6C63FF', 
+    backgroundColor: '#6C63FF', // Matching your onboarding/main button color
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
@@ -221,8 +147,8 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
   },
   premiumIconCircle: { width: 45, height: 45, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 15 },
   premiumTitle: { fontSize: 18, fontWeight: 'bold', color: '#FFF' },
