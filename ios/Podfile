@@ -8,31 +8,24 @@ require Pod::Executable.execute_command('node', ['-p',
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
-# 1. Force Modular Headers globally
-use_modular_headers!
-
-# 2. Hot-patch React and Firebase pods to be treated as modules
-pre_install do |installer|
-  installer.pod_targets.each do |pod|
-    if pod.name.start_with?('React') || pod.name.start_with?('rnfb') || pod.name.start_with?('Firebase')
-      def pod.use_modular_headers; true; end
-    end
-  end
+linkage = ENV['USE_FRAMEWORKS']
+if linkage != nil
+  Pod::UI.puts "Configuring Pod with #{linkage}ally linked Frameworks".green
+  use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'downloader' do  
-  # 3. Use static linkage (Required for Swift pods like Firebase)
+target 'downloader' do
   use_frameworks! :linkage => :static
-
-  # 4. Senior's Requested Flags for Static Frameworks
   $RNFirebaseAsStaticFramework = true
   $RNGoogleMobileAdsAsStaticFramework = true
   $RNAdMobAsStaticFramework = true
+  config = use_native_modules!
 
   config = use_native_modules!
 
   use_react_native!(
     :path => config[:reactNativePath],
+    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -41,16 +34,7 @@ target 'downloader' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
+      # :ccache_enabled => true
     )
-    
-    installer.pods_project.targets.each do |target|
-      target.build_configurations.each do |config|
-        # 5. THE FIX: Allow non-modular headers (Kills the RCTConvert.h errors)
-        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
-        
-        # 6. Ensure deployment target is consistent
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.4'
-      end
-    end
   end
 end
