@@ -13,7 +13,7 @@ MobileAds()
     tagForChildDirectedTreatment: false,
     tagForUnderAgeOfConsent: false,
   })
-  .then(() => mobileAds().initialize())
+  .then(() => MobileAds().initialize())
   .then(adapterStatuses => {
     console.log('Ads initialized', adapterStatuses);
   })

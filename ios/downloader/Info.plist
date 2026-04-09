@@ -8,6 +8,8 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>downloader</string>
+	<key>GADApplicationIdentifier</key>
+<string>ca-app-pub-7435562362672599~4305695256</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 <string>We need access to your library to save downloaded videos.</string>
 <key>NSPhotoLibraryAddUsageDescription</key>
