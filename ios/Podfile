@@ -21,8 +21,6 @@ target 'downloader' do
   $RNAdMobAsStaticFramework = true
   config = use_native_modules!
 
-  config = use_native_modules!
-
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
@@ -35,12 +33,11 @@ target 'downloader' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
-    installer.pods_project.targets.each do |target|
-      if target.name.include?('RNFBApp') || target.name.include?('Firebase')
+
+      installer.pods_project.targets.each do |target|
         target.build_configurations.each do |config|
           config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         end
-      end
     end
   end
 end
