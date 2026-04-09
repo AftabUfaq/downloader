@@ -29,7 +29,7 @@ const PLATFORMS = [
     target: 'TikTok',
     keys: ['tiktok'],
     color: '#00f2ea',
-    url: "https://www.tiktok.com/@sanorita_official/video/7618248251703266581"
+    url: "https://www.tiktok.com/@liwany247/video/7613816485668080903?is_from_webapp=1&sender_device=pc"
   },
   {
     name: 'Instagram',
