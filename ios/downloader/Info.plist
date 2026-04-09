@@ -8,12 +8,6 @@
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>downloader</string>
-	<key>GADApplicationIdentifier</key>
-<string>ca-app-pub-7435562362672599~4305695256</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-<string>We need access to your library to save downloaded videos.</string>
-<key>NSPhotoLibraryAddUsageDescription</key>
-<string>We need access to your library to save downloaded videos.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -32,15 +26,43 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-7435562362672599~4305695256</string>
+	
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>4fzdc2evr5.skadnetwork</string>
+		</dict>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>2fnua5tdw4.skadnetwork</string>
+		</dict>
+	</array>
+
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need access to your library to save downloaded videos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need access to your library to save downloaded videos.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>This identifier will be used to deliver personalized ads to you.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string></string>
+
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
-		<false/>
+		<true/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+
 	<key>RCTNewArchEnabled</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
