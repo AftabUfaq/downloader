@@ -1,17 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, Dimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ghost, XCircle } from 'lucide-react-native';
 import RNFS from 'react-native-fs';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestStoragePermission } from '../utils/DownloadManager'; 
-import { useTranslation } from 'react-i18next';
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
 export default function SnapchatScreen({route}) {
-  const { t, i18n } = useTranslation();
   const [url, setUrl] = useState('');
   const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,7 +17,6 @@ export default function SnapchatScreen({route}) {
   const [previewPath, setPreviewPath] = useState(null); 
 
   const activeRequestId = useRef(null);
-  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -27,29 +24,39 @@ export default function SnapchatScreen({route}) {
     }
   }, [route.params?.initialUrl]);
 
-  const INJECTED_JS = `(function() {
+ const INJECTED_JS = `(function() {
     if (window.snappyScraperLoaded) return;
     window.snappyScraperLoaded = true;
+
     function findSnapLink() {
+      // 1. Check for the deep-linked MP4 in the page scripts (Highest Quality)
       const scripts = document.querySelectorAll('script');
       for (let script of scripts) {
         const content = script.textContent;
         if (content.includes("mediaUrl") || content.includes("contentUrl")) {
+            // RegEx to find the direct media URL in the JSON blob
             const match = content.match(/"mediaUrl":"(.*?)"/) || content.match(/"contentUrl":"(.*?)"/);
             if (match && match[1]) return match[1].replace(/\\\\u002f/g, '/');
         }
       }
+
+      // 2. Fallback to OpenGraph Video (Standard Clean URL)
       const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
                    document.querySelector('meta[property="og:video"]');
       if (meta && meta.content) return meta.content;
+
+      // 3. Last resort: The rendered video tag
       const video = document.querySelector('video');
       if (video && video.src && !video.src.startsWith('blob')) return video.src;
+      
       return null;
     }
+
     let attempts = 0;
     const checkInterval = setInterval(() => {
       attempts++;
       const link = findSnapLink();
+      
       if (link) {
         clearInterval(checkInterval);
         window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SUCCESS', data: link }));
@@ -62,10 +69,10 @@ export default function SnapchatScreen({route}) {
 
   const handleDownload = async () => {
     if (!url.includes('snapchat.com')) {
-      return Alert.alert(t('dl_error'), t('sc_invalid_link'));
+      return Alert.alert("Invalid Link", "Please paste a valid Snapchat link.");
     }
     const hasPermission = await requestStoragePermission();
-    if (!hasPermission) return Alert.alert(t('perm_blocked_title'), t('perm_blocked_desc'));
+    if (!hasPermission) return Alert.alert("Permission Denied", "Storage access required.");
 
     setPreviewPath(null); 
     activeRequestId.current = Date.now().toString();
@@ -77,6 +84,7 @@ export default function SnapchatScreen({route}) {
   const saveSnapchatVideo = async (directVideoUrl) => {
     let cleanUrl = directVideoUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
     const fileName = `Snapchat_${Date.now()}.mp4`;
+    // Consistent with DownloadManager: Using ExternalDirectoryPath
     const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
 
     const options = {
@@ -91,13 +99,17 @@ export default function SnapchatScreen({route}) {
       },
     };
 
-    const result = await RNFS.downloadFile(options).promise;
-    if (result.statusCode === 200 || result.statusCode === 206) {
-      const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-      await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-      return cleanPath; 
-    } else {
-      throw new Error(`Server error: ${result.statusCode}`);
+    try {
+      const result = await RNFS.downloadFile(options).promise;
+      if (result.statusCode === 200 || result.statusCode === 206) {
+        const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+        await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
+        return cleanPath; 
+      } else {
+        throw new Error(`Server error: ${result.statusCode}`);
+      }
+    } catch (err) {
+      throw err;
     }
   };
 
@@ -105,12 +117,13 @@ export default function SnapchatScreen({route}) {
     setScrapingUrl('');
     if (!activeRequestId.current) return;
     activeRequestId.current = null;
+
     let response;
     try { response = JSON.parse(e.nativeEvent.data); } catch (err) { setLoading(false); return; }
 
     if (response.type === "ERROR") {
       setLoading(false);
-      return Alert.alert(t('dl_error'), t('sc_error_extract'));
+      return Alert.alert("Error", "Could not find video.");
     }
 
     try {
@@ -128,10 +141,10 @@ export default function SnapchatScreen({route}) {
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
-      Alert.alert(t('continue'), t('sc_success'));
+      Alert.alert("Success", "Snapchat video saved!");
       setUrl('');
     } catch (err) {
-      Alert.alert(t('dl_error'), t('sc_dl_failed'));
+      Alert.alert("Download Failed", "Please try again.");
     } finally {
       setLoading(false);
       setProgress(0);
@@ -143,12 +156,13 @@ export default function SnapchatScreen({route}) {
       <View style={styles.iconWrapper}>
         <Ghost size={50} color="#000" />
       </View>
-      <Text style={styles.title}>{t('sc_header')}</Text>
+      <Text style={styles.title}>Snapchat Downloader</Text>
 
+      {/* --- VIDEO PREVIEW PLAYER (FIXED FOR PLAYBACK) --- */}
       {previewPath && (
         <View style={styles.previewContainer}>
-          <View style={[styles.previewHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-            <Text style={styles.previewLabel}>{t('sc_preview')}</Text>
+          <View style={styles.previewHeader}>
+            <Text style={styles.previewLabel}>Video Ready</Text>
             <TouchableOpacity onPress={() => setPreviewPath(null)}>
               <XCircle color="#ff0050" size={24} />
             </TouchableOpacity>
@@ -173,8 +187,8 @@ export default function SnapchatScreen({route}) {
       )}
 
       <TextInput 
-        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
-        placeholder={t('sc_placeholder')} 
+        style={styles.input} 
+        placeholder="Paste Snapchat Link..." 
         placeholderTextColor="#999"
         onChangeText={setUrl} 
         value={url}
@@ -186,7 +200,7 @@ export default function SnapchatScreen({route}) {
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#000" />
           <Text style={styles.progressText}>
-            {progress > 0 ? `${t('sc_saving')} ${progress}%` : t('sc_processing')}
+            {progress > 0 ? `Saving: ${progress}%` : 'Processing Link...'}
           </Text>
         </View>
       )}
@@ -196,7 +210,7 @@ export default function SnapchatScreen({route}) {
         onPress={handleDownload}
         disabled={loading}
       >
-        <Text style={styles.btnText}>{loading ? t('sc_btn_wait') : t('sc_btn_dl')}</Text>
+        <Text style={styles.btnText}>{loading ? 'Downloading...' : 'Get Snapchat Video'}</Text>
       </TouchableOpacity>
 
       {scrapingUrl !== '' && (
@@ -219,9 +233,9 @@ const styles = StyleSheet.create({
   iconWrapper: { alignSelf: 'center', backgroundColor: '#FFFC00', padding: 15, borderRadius: 20, marginBottom: 10 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: 20 },
   previewContainer: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8 },
+  previewHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   previewLabel: { fontWeight: 'bold', color: '#000' },
-  videoBox: { height: 300, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
+  videoBox: { height: 300, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 }, // Height increased to 300 for Snapchat portrait videos
   input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
   btn: { backgroundColor: '#FFFC00', padding: 18, borderRadius: 15, alignItems: 'center' },
   btnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
