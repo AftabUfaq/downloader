@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -7,54 +7,62 @@ import {
   FlatList, 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next'; // 1. Import hook
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 2. Import Storage
+import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LANGUAGES = [
-  { id: '1', name: 'English', subName: 'English', code: 'en' },
-  { id: '2', name: 'Spanish', subName: 'Español', code: 'es' },
-  { id: '3', name: 'French', subName: 'Français', code: 'fr' },
-  { id: '4', name: 'Arabic', subName: 'العربية', code: 'ar' },
-  { id: '5', name: 'Hindi', subName: 'हिन्दी', code: 'hi' },
-  { id: '6', name: 'Urdu', subName: 'اردو', code: 'ur' },
+  { id: '1', name: 'English', subName: 'English', code: 'en', flag: '🇺🇸' },
+  { id: '2', name: 'Spanish', subName: 'Español', code: 'es', flag: '🇪🇸' },
+  { id: '3', name: 'French', subName: 'Français', code: 'fr', flag: '🇫🇷' },
+  { id: '4', name: 'Arabic', subName: 'العربية', code: 'ar', flag: '🇸🇦' },
+  { id: '5', name: 'Hindi', subName: 'हिन्दी', code: 'hi', flag: '🇮🇳' },
+  { id: '6', name: 'Urdu', subName: 'اردو', code: 'ur', flag: '🇵🇰' },
 ];
 
 const LanguageScreen = ({ navigation }) => {
-  const { t, i18n } = useTranslation(); // 3. Get translation functions
+  const { t, i18n } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState(i18n.language || 'en');
+  
+  // Detect if current language is RTL
+  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
-  // 4. Update language as soon as the user selects one
   const handleSelectLanguage = (code) => {
     setSelectedLanguage(code);
-    i18n.changeLanguage(code); // This changes the UI text instantly
+    i18n.changeLanguage(code); 
   };
 
-const handleContinue = async () => {
-  try {
-    await AsyncStorage.setItem('user-language', selectedLanguage);
-    // ✅ MUST MATCH App.tsx EXACTLY (Capital L)
-    navigation.navigate('SecondaryLanguage'); 
-  } catch (e) {
-    console.log('Error saving language', e);
-  }
-};
+  const handleContinue = async () => {
+    try {
+      await AsyncStorage.setItem('user-language', selectedLanguage);
+      navigation.navigate('SecondaryLanguage'); 
+    } catch (e) {
+      console.log('Error saving language', e);
+    }
+  };
 
   const renderItem = ({ item }) => {
     const isSelected = selectedLanguage === item.code;
     
     return (
       <TouchableOpacity 
-        style={[styles.languageCard, isSelected && styles.selectedCard]} 
-        onPress={() => handleSelectLanguage(item.code)} // Change logic here
+        style={[
+          styles.languageCard, 
+          isSelected && styles.selectedCard,
+          { flexDirection: isRTL ? 'row-reverse' : 'row' } // Flip card for RTL
+        ]} 
+        onPress={() => handleSelectLanguage(item.code)}
         activeOpacity={0.7}
       >
-        <View>
-          <Text style={[styles.languageName, isSelected && styles.selectedText]}>
-            {item.name}
-          </Text>
-          <Text style={[styles.languageSub, isSelected && styles.selectedSub]}>
-            {item.subName}
-          </Text>
+        <View style={[styles.mainInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+          <Text style={styles.flagEmoji}>{item.flag}</Text>
+          <View style={{ alignItems: isRTL ? 'flex-end' : 'flex-start', marginHorizontal: 15 }}>
+            <Text style={[styles.languageName, isSelected && styles.selectedText]}>
+              {item.name}
+            </Text>
+            <Text style={[styles.languageSub, isSelected && styles.selectedSub]}>
+              {item.subName}
+            </Text>
+          </View>
         </View>
         
         <View style={[styles.radioCircle, isSelected && styles.selectedRadio]}>
@@ -66,10 +74,13 @@ const handleContinue = async () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        {/* 6. Use t('key') instead of hardcoded text */}
-        <Text style={styles.title}>{t('language_title')}</Text>
-        <Text style={styles.subtitle}>{t('language_subtitle')}</Text>
+      <View style={[styles.header, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
+        <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {t('language_title')}
+        </Text>
+        <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {t('language_subtitle')}
+        </Text>
       </View>
 
       <FlatList
@@ -89,15 +100,13 @@ const handleContinue = async () => {
   );
 };
 
-// ... styles remain the same ...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { paddingHorizontal: 25, paddingTop: 40, marginBottom: 20 },
-  title: { fontSize: 32, fontWeight: 'bold', color: '#000' },
+  title: { fontSize: 30, fontWeight: 'bold', color: '#000' },
   subtitle: { fontSize: 16, color: '#666', marginTop: 5 },
   listContent: { paddingHorizontal: 20, paddingBottom: 120 },
   languageCard: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 18,
@@ -107,6 +116,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
+  mainInfo: { alignItems: 'center', flex: 1 },
+  flagEmoji: { fontSize: 28 }, // Large flag for better visibility
   selectedCard: { borderColor: '#FFE600', backgroundColor: '#FFFBE6' },
   languageName: { fontSize: 18, fontWeight: '700', color: '#333' },
   languageSub: { fontSize: 14, color: '#999', marginTop: 2 },
@@ -128,10 +139,6 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     borderRadius: 18,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
     elevation: 5,
   },
   buttonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },

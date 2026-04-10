@@ -168,7 +168,9 @@
 "pp_s2_title": "2. Permissions",
 "pp_s2_text": "We require storage permissions only to save media to your gallery. We do not access your private photos or files.",
 "pp_s3_title": "3. Third-Party Ads",
-"pp_s3_text": "We use Google AdMob to serve ads. These services may collect device identifiers to provide personalized content."
+"pp_s3_text": "We use Google AdMob to serve ads. These services may collect device identifiers to provide personalized content.",
+"back": "Back",
+"select_variant": "Choose your regional variant"
 
 
 }
