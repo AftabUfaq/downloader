@@ -4,13 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SAF from 'react-native-saf-x';
 import { Download, Video as VideoIcon, RefreshCw } from 'lucide-react-native';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import { useTranslation } from 'react-i18next'; // 1. Import
 
 const STORAGE_KEY = '@whatsapp_uri';
 
 const WhatsappScreen = () => {
+  const { t, i18n } = useTranslation(); // 2. Initialize
   const [statuses, setStatuses] = useState([]);
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   useEffect(() => {
     checkExistingPermission();
@@ -33,11 +37,11 @@ const WhatsappScreen = () => {
 
   const grantAccess = async () => {
     Alert.alert(
-      "Important Step",
-      "On the next screen:\n1. Navigate to: Android > media > com.whatsapp > WhatsApp > Media > .Statuses\n2. Click 'USE THIS FOLDER'.\n\n(If you don't see .Statuses, click the 3-dots in top right and 'Show hidden files')",
+      t('ws_alert_title'),
+      t('ws_alert_msg'),
       [
         {
-          text: "OK, I'm Ready",
+          text: t('ws_alert_ok'),
           onPress: async () => {
             try {
               const result = await SAF.openDocumentTree(true);
@@ -64,7 +68,6 @@ const WhatsappScreen = () => {
 
       let allItems = await SAF.listFiles(uri);
       
-      // DEEP SEARCH: If user picked root instead of .Statuses, we try to find it
       const mediaDir = allItems.find(i => i.name === 'Media');
       if (mediaDir) {
         const mediaContent = await SAF.listFiles(mediaDir.uri);
@@ -90,21 +93,15 @@ const WhatsappScreen = () => {
 
   const saveToGallery = async (file) => {
     try {
-      // 1. Create a safe filename and destination in public Downloads
       const extension = file.name.split('.').pop();
       const destName = `Status_${Date.now()}.${extension}`;
       const destinationPath = `${SAF.Directories.Downloads}/${destName}`;
-
-      // 2. Copy the file from WhatsApp's private URI to Public Storage
       await SAF.copyFile(file.uri, destinationPath);
-      
-      // 3. Register with Android Gallery
       await CameraRoll.saveAsset(destinationPath, { type: 'auto', album: 'SnappySave' });
       
-      Alert.alert("Success", "Status saved to Gallery!");
+      Alert.alert(t('continue'), t('ws_save_success'));
     } catch (err) {
-      console.error("Save Error", err);
-      Alert.alert("Error", "Failed to save status. Ensure you have viewed it in WhatsApp first.");
+      Alert.alert(t('dl_error'), t('ws_save_error'));
     }
   };
 
@@ -115,16 +112,15 @@ const WhatsappScreen = () => {
         {isVideo ? (
           <View style={[styles.img, styles.videoPlaceholder]}>
             <VideoIcon size={40} color="#6C63FF" />
-            <Text style={styles.videoLabel}>VIDEO</Text>
+            <Text style={styles.videoLabel}>{t('ws_video')}</Text>
           </View>
         ) : (
-          <Image 
-            source={{ uri: item.uri }} 
-            style={styles.img} 
-            resizeMode="cover" 
-          />
+          <Image source={{ uri: item.uri }} style={styles.img} resizeMode="cover" />
         )}
-        <TouchableOpacity style={styles.dlBtn} onPress={() => saveToGallery(item)}>
+        <TouchableOpacity 
+          style={[styles.dlBtn, isRTL ? { left: 12, right: undefined } : { right: 12, left: undefined }]} 
+          onPress={() => saveToGallery(item)}
+        >
           <Download size={20} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -133,8 +129,8 @@ const WhatsappScreen = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Status Saver</Text>
+      <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+        <Text style={styles.headerTitle}>{t('ws_header')}</Text>
         {hasAccess && (
           <TouchableOpacity onPress={() => loadFiles()}>
             <RefreshCw size={24} color="#6C63FF" />
@@ -144,10 +140,10 @@ const WhatsappScreen = () => {
 
       {!hasAccess ? (
         <View style={styles.centered}>
-          <Text style={styles.title}>Access Required</Text>
-          <Text style={styles.desc}>To show statuses, we need permission to read the WhatsApp media folder.</Text>
+          <Text style={styles.title}>{t('ws_access_req')}</Text>
+          <Text style={styles.desc}>{t('ws_desc')}</Text>
           <TouchableOpacity style={styles.btn} onPress={grantAccess}>
-            <Text style={styles.btnText}>Setup Access</Text>
+            <Text style={styles.btnText}>{t('ws_btn_setup')}</Text>
           </TouchableOpacity>
         </View>
       ) : loading ? (
@@ -163,7 +159,7 @@ const WhatsappScreen = () => {
           contentContainerStyle={{ padding: 5 }}
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Text style={styles.desc}>No statuses found. Open WhatsApp and watch some statuses first!</Text>
+              <Text style={styles.desc}>{t('ws_empty')}</Text>
             </View>
           }
         />
@@ -171,6 +167,7 @@ const WhatsappScreen = () => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },

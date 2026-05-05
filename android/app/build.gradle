@@ -2,6 +2,7 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
+
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -108,9 +109,10 @@ android {
 }
 
 dependencies {
-    // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation project(':react-native-async-storage_async-storage')
+    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
+    implementation("com.google.firebase:firebase-config")
+    implementation("com.google.firebase:firebase-analytics")
 
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
@@ -118,10 +120,24 @@ dependencies {
         implementation jscFlavor
     }
 }
+
 configurations.all {
     resolutionStrategy {
-        // This forces all libraries to use the same version of common Google/Android tools
-        force "androidx.core:core:1.9.0"
-        force "androidx.appcompat:appcompat:1.6.1"
+        // 1. Force the modern Kotlin StdLib (SDK 36 requirement)
+        force "org.jetbrains.kotlin:kotlin-stdlib:2.1.20"
+        
+        // 2. EXPLICITLY REMOVE the old "bridge" modules that cause duplicates
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
+        exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
+
+        // 3. Solve the Google/Firebase ListenableFuture clash
+        force "com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava"
+
+        // 4. Force standard AndroidX versions to prevent metadata mismatches
+        force "androidx.core:core:1.13.1"
+        force "androidx.core:core-ktx:1.13.1"
     }
 }
+
+// APPLY THIS AT THE VERY BOTTOM
+apply plugin: "com.google.gms.google-services"

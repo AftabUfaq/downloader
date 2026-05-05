@@ -15,6 +15,10 @@ if linkage != nil
 end
 
 target 'downloader' do
+  use_frameworks! :linkage => :static
+  $RNFirebaseAsStaticFramework = true
+  $RNGoogleMobileAdsAsStaticFramework = true
+  $RNAdMobAsStaticFramework = true
   config = use_native_modules!
 
   use_react_native!(
@@ -27,8 +31,13 @@ target 'downloader' do
     react_native_post_install(
       installer,
       config[:reactNativePath],
-      :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
+      :mac_catalyst_enabled => false
     )
+
+      installer.pods_project.targets.each do |target|
+        target.build_configurations.each do |config|
+          config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+        end
+    end
   end
 end
