@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Briefcase, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
+import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 import { useTranslation } from 'react-i18next';
 
-const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+const LI_API = 'https://us-central1-hyperclapper.cloudfunctions.net/getVideoInfo';
 
 export default function LinkedInScreen({ route }) {
   const { t, i18n } = useTranslation();
   const [url, setUrl] = useState('');
-  const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
@@ -19,35 +18,8 @@ export default function LinkedInScreen({ route }) {
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   useEffect(() => {
-    if (route.params?.initialUrl) {
-      setUrl(route.params.initialUrl);
-    }
+    if (route.params?.initialUrl) setUrl(route.params.initialUrl);
   }, [route.params?.initialUrl]);
-
-  const INJECTED_JS = `(function() {
-    function findLinkedInVideo() {
-      const meta = document.querySelector('meta[property="og:video:secure_url"]') || 
-                   document.querySelector('meta[property="og:video"]');
-      if (meta && meta.content && meta.content.startsWith('http')) return meta.content;
-      
-      const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) return video.src;
-
-      const scripts = document.querySelectorAll('script');
-      for (let script of scripts) {
-        const content = script.textContent;
-        if (content.includes("contentUrl")) {
-            const match = content.match(/"contentUrl":"(.*?)"/);
-            if (match && match[1]) return match[1].replace(/\\\\u002f/g, '/');
-        }
-      }
-      return null;
-    }
-    setTimeout(() => {
-      const link = findLinkedInVideo();
-      window.ReactNativeWebView.postMessage(link || "not_found");
-    }, 2500);
-  })()`;
 
   const handleProcess = async () => {
     if (!url.includes('linkedin.com')) {
@@ -59,30 +31,34 @@ export default function LinkedInScreen({ route }) {
     setPreviewPath(null);
     setLoading(true);
     setProgress(0);
-    setScrapingUrl(url); 
-  };
-
-  const onMessage = async (e) => {
-    const result = e.nativeEvent.data;
-    setScrapingUrl(''); 
-
-    if (result === "not_found") {
-      setLoading(false);
-      return Alert.alert(t('dl_error'), t('li_error_extract'));
-    }
 
     try {
-      const localUri = await startDownload(result, 'LinkedIn', (p) => setProgress(p));
+      const res = await fetch(LI_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const json = await res.json();
+
+      // Pick highest bitrate format, fall back to videoUrl
+      let videoUrl = json.videoUrl;
+      if (json.formats?.length) {
+        const best = json.formats.reduce((a, b) => ((b.tbr || 0) > (a.tbr || 0) ? b : a));
+        if (best?.url) videoUrl = best.url;
+      }
+
+      if (!videoUrl) throw new Error('No video URL');
+
+      const localUri = await startDownload(videoUrl, 'LinkedIn', (p) => setProgress(p));
       setPreviewPath(localUri);
 
       const newDownload = {
         id: Date.now().toString(),
-        title: `LinkedIn_${Date.now()}`,
+        title: json.title || `LinkedIn_${Date.now()}`,
         path: localUri,
         platform: 'LinkedIn',
         date: new Date().toLocaleDateString(),
       };
-
       const existing = await AsyncStorage.getItem('recent_downloads');
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
@@ -90,7 +66,7 @@ export default function LinkedInScreen({ route }) {
       Alert.alert(t('continue'), t('li_success'));
       setUrl('');
     } catch (err) {
-      Alert.alert(t('dl_error'), t('li_dl_failed'));
+      Alert.alert(t('dl_error'), t('li_error_extract'));
     } finally {
       setLoading(false);
       setProgress(0);
@@ -120,27 +96,23 @@ export default function LinkedInScreen({ route }) {
               allowsFullscreenVideo={true}
               scrollEnabled={false}
               javaScriptEnabled={true}
-              source={{ html: `
-                <body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;">
-                  <video src="${previewPath}" controls autoplay playsinline style="width:100%; height:100%; object-fit: contain;"></video>
-                </body>
-              `}}
+              source={{ html: `<body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;"><video src="${previewPath}" controls autoplay playsinline style="width:100%;height:100%;object-fit:contain;"></video></body>` }}
               style={{ flex: 1 }}
             />
           </View>
         </View>
       )}
 
-      <TextInput 
-        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
-        placeholder={t('li_placeholder')} 
+      <TextInput
+        style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
+        placeholder={t('li_placeholder')}
         placeholderTextColor="#999"
-        onChangeText={setUrl} 
+        onChangeText={setUrl}
         value={url}
         autoCapitalize="none"
         editable={!loading}
       />
-      
+
       {loading && (
         <View style={styles.loaderContainer}>
           <ActivityIndicator color="#0A66C2" />
@@ -150,24 +122,13 @@ export default function LinkedInScreen({ route }) {
         </View>
       )}
 
-      <TouchableOpacity 
-        style={[styles.btn, loading && { opacity: 0.6 }]} 
+      <TouchableOpacity
+        style={[styles.btn, loading && { opacity: 0.6 }]}
         onPress={handleProcess}
         disabled={loading}
       >
         <Text style={styles.btnText}>{loading ? t('li_btn_wait') : t('li_btn_dl')}</Text>
       </TouchableOpacity>
-
-      {scrapingUrl !== '' && (
-        <View style={{ height: 0, width: 0, position: 'absolute' }}>
-          <WebView 
-            source={{ uri: scrapingUrl }} 
-            injectedJavaScript={INJECTED_JS} 
-            userAgent={DESKTOP_UA} 
-            onMessage={onMessage} 
-          />
-        </View>
-      )}
     </View>
   );
 }
@@ -184,5 +145,5 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: '#0A66C2', padding: 18, borderRadius: 12, alignItems: 'center' },
   btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
   loaderContainer: { marginBottom: 20, alignItems: 'center' },
-  progressText: { marginTop: 8, color: '#666', fontWeight: '600' }
+  progressText: { marginTop: 8, color: '#666', fontWeight: '600' },
 });

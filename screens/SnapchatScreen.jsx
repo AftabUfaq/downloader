@@ -77,7 +77,8 @@ export default function SnapchatScreen({route}) {
   const saveSnapchatVideo = async (directVideoUrl) => {
     let cleanUrl = directVideoUrl.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\/g, '');
     const fileName = `Snapchat_${Date.now()}.mp4`;
-    const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
+    const dir = Platform.OS === 'android' ? RNFS.ExternalDirectoryPath : RNFS.DocumentDirectoryPath;
+    const filePath = `${dir}/${fileName}`;
 
     const options = {
       fromUrl: cleanUrl,
@@ -93,9 +94,9 @@ export default function SnapchatScreen({route}) {
 
     const result = await RNFS.downloadFile(options).promise;
     if (result.statusCode === 200 || result.statusCode === 206) {
-      const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+      const cleanPath = `file://${filePath}`;
       await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-      return cleanPath; 
+      return cleanPath;
     } else {
       throw new Error(`Server error: ${result.statusCode}`);
     }

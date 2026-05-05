@@ -33,7 +33,8 @@ export default function PinterestScreen({ route }) {
   const saveVideo = (videoUrl) => {
     return new Promise(async (resolve, reject) => {
       const fileName = `Pinterest_${Date.now()}.mp4`;
-      const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
+      const dir = Platform.OS === 'android' ? RNFS.ExternalDirectoryPath : RNFS.DocumentDirectoryPath;
+      const filePath = `${dir}/${fileName}`;
       const xhr = new XMLHttpRequest();
       xhr.open('GET', videoUrl, true);
       xhr.setRequestHeader('User-Agent', DESKTOP_UA);
@@ -51,7 +52,7 @@ export default function PinterestScreen({ route }) {
           reader.onloadend = async () => {
             const base64data = reader.result.split(',')[1];
             await RNFS.writeFile(filePath, base64data, 'base64');
-            const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
+            const cleanPath = `file://${filePath}`;
             await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
             resolve(cleanPath);
           };

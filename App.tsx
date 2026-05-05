@@ -65,7 +65,7 @@ return (
       
       <Stack.Navigator 
         // If app isn't ready, start at Language. If it is, start at MainApp.
-        initialRouteName={!isAppReady ? "Language" : "MainApp"}
+        initialRouteName={!isAppReady ? "MainApp" : "MainApp"}
         screenOptions={{ headerShown: false }}
       >
         {/* All screens are now defined, so navigate('SecondaryLanguage') will always work */}

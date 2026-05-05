@@ -12,7 +12,6 @@ const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 export default function TwitterScreen({ route }) {
   const { t, i18n } = useTranslation();
   const [url, setUrl] = useState("");
-  const [scrapingUrl, setScrapingUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
@@ -22,8 +21,8 @@ export default function TwitterScreen({ route }) {
   const requestPermission = async () => {
     if (Platform.OS !== "android") return true;
     const permission = Platform.Version >= 33
-        ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO
-        : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+      ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_VIDEO
+      : PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
     const granted = await PermissionsAndroid.request(permission);
     return granted === PermissionsAndroid.RESULTS.GRANTED;
   };
@@ -37,7 +36,8 @@ export default function TwitterScreen({ route }) {
   const saveVideo = (videoUrl) => {
     return new Promise(async (resolve, reject) => {
       const fileName = `Twitter_${Date.now()}.mp4`;
-      const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
+      const dir = Platform.OS === 'android' ? RNFS.ExternalDirectoryPath : RNFS.DocumentDirectoryPath;
+      const filePath = `${dir}/${fileName}`;
       const xhr = new XMLHttpRequest();
       xhr.open("GET", videoUrl, true);
       xhr.setRequestHeader("User-Agent", DESKTOP_UA);
@@ -56,7 +56,7 @@ export default function TwitterScreen({ route }) {
             try {
               const base64data = reader.result.split(",")[1];
               await RNFS.writeFile(filePath, base64data, "base64");
-              const cleanPath = Platform.OS === "android" ? `file://${filePath}` : filePath;
+              const cleanPath = `file://${filePath}`;
               await CameraRoll.saveAsset(cleanPath, { type: "video", album: "SnappySave" });
               resolve(cleanPath);
             } catch (err) { reject("Save failed"); }
@@ -69,88 +69,63 @@ export default function TwitterScreen({ route }) {
     });
   };
 
-  const INJECTED_JS = `(function(){
-    function extract(){
-      const selectors = [
-        'meta[property="twitter:player:stream"]',
-        'meta[property="og:video:url"]',
-        'meta[property="og:video:secure_url"]',
-        'meta[name="twitter:video:url"]'
-      ];
-      for(let selector of selectors) {
-        const meta = document.querySelector(selector);
-        if(meta && meta.content && meta.content.includes('.mp4')) return meta.content;
-      }
-      const scripts = document.querySelectorAll('script');
-      for (let s of scripts) {
-        const content = s.textContent;
-        if (content.includes(".mp4")) {
-           const match = content.match(/"(https:[^"]+\\.mp4[^"]*)"/);
-           if (match && match[1]) return match[1].replace(/\\\\u002f/g, '/').replace(/\\\\/g, '');
-        }
-      }
-      const video = document.querySelector("video");
-      if(video && video.src && !video.src.startsWith('blob')) return video.src;
-      return null;
-    }
-    let tries=0;
-    const timer=setInterval(()=>{
-      const result=extract();
-      if(result){
-        window.ReactNativeWebView.postMessage(result);
-        clearInterval(timer);
-      }
-      tries++;
-      if(tries > 20){
-        window.ReactNativeWebView.postMessage("not_found");
-        clearInterval(timer);
-      }
-    },800);
-  })();`;
+  const extractTweetId = (rawUrl) => {
+    const match = rawUrl.match(/\/status(?:es)?\/(\d+)/);
+    return match ? match[1] : null;
+  };
 
   const handleProcess = async () => {
-    let cleanUrl = url.trim();
+    const cleanUrl = url.trim();
     if (!cleanUrl.includes("twitter.com") && !cleanUrl.includes("x.com")) {
       return Alert.alert(t('dl_error'), t('tw_invalid_link'));
     }
+
     const hasPerm = await requestPermission();
     if (!hasPerm) return;
+
+    const tweetId = extractTweetId(cleanUrl);
+    if (!tweetId) {
+      return Alert.alert(t('dl_error'), t('tw_invalid_link'));
+    }
 
     setPreviewPath(null);
     setLoading(true);
     setProgress(0);
 
     try {
-      let urlObj = new URL(cleanUrl);
-      if (['x.com', 'twitter.com', 'www.x.com', 'www.twitter.com'].includes(urlObj.hostname)) {
-        urlObj.hostname = 'vxtwitter.com';
-      }
-      setScrapingUrl(urlObj.toString().replace("/i/status/", "/status/"));
-    } catch (e) {
-      let fallbackUrl = cleanUrl.replace(/(www\.)?x\.com/, "vxtwitter.com").replace(/(www\.)?twitter\.com/, "vxtwitter.com").replace("/i/status/", "/status/");
-      setScrapingUrl(fallbackUrl.includes("vxvxtwitter") ? fallbackUrl.replace("vxvxtwitter", "vxtwitter") : fallbackUrl);
-    }
-  };
+      const res = await fetch(`https://api.fxtwitter.com/status/${tweetId}`);
+      const json = await res.json();
 
-  const onMessage = async (event) => {
-    const videoUrl = event.nativeEvent.data;
-    setScrapingUrl(""); 
-    if (videoUrl === "not_found") {
-      setLoading(false);
-      return Alert.alert(t('dl_error'), t('tw_not_found'));
-    }
-    try {
+      const videos = json?.tweet?.media?.videos;
+      if (!videos || videos.length === 0) {
+        throw new Error('No video found');
+      }
+
+      // Pick highest quality
+      const best = videos.reduce((a, b) => (b.width > a.width ? b : a));
+      const videoUrl = best.url;
+
       const localUri = await saveVideo(videoUrl);
       setPreviewPath(localUri);
-      const newDownload = { id: Date.now().toString(), title: `X_${Date.now()}`, path: localUri, platform: "Twitter", date: new Date().toLocaleDateString() };
+
+      const newDownload = {
+        id: Date.now().toString(),
+        title: `X_${Date.now()}`,
+        path: localUri,
+        platform: "Twitter",
+        date: new Date().toLocaleDateString(),
+      };
       const existing = await AsyncStorage.getItem("recent_downloads");
       const downloads = existing ? JSON.parse(existing) : [];
       await AsyncStorage.setItem("recent_downloads", JSON.stringify([newDownload, ...downloads]));
+
       Alert.alert(t('continue'), t('tw_success'));
       setUrl("");
     } catch (err) {
-      Alert.alert(t('dl_error'), t('tw_error_dl'));
-    } finally { setLoading(false); }
+      Alert.alert(t('dl_error'), t('tw_not_found'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -168,14 +143,18 @@ export default function TwitterScreen({ route }) {
               <XCircle size={24} color="#ff0050" />
             </TouchableOpacity>
           </View>
-          <div style={styles.videoBox}>
+          <View style={styles.videoBox}>
             <WebView
               key={previewPath}
               originWhitelist={["*"]}
               allowFileAccess
-              source={{ html: `<body style="margin:0;background:black;display:flex;justify-content:center;align-items:center;"><video src="${previewPath}" controls autoplay style="width:100%;height:100%;object-fit:contain;"></video></body>` }}
+              allowUniversalAccessFromFileURLs={true}
+              allowsFullscreenVideo={true}
+              scrollEnabled={false}
+              source={{ html: `<body style="margin:0;padding:0;background:black;display:flex;justify-content:center;align-items:center;"><video src="${previewPath}" controls autoplay playsinline style="width:100%;height:100%;object-fit:contain;"></video></body>` }}
+              style={{ flex: 1 }}
             />
-          </div>
+          </View>
         </View>
       )}
 
@@ -200,12 +179,6 @@ export default function TwitterScreen({ route }) {
       <TouchableOpacity style={[styles.btn, loading && { opacity: 0.6 }]} onPress={handleProcess} disabled={loading}>
         <Text style={styles.btnText}>{loading ? t('tw_btn_wait') : t('tw_btn_dl')}</Text>
       </TouchableOpacity>
-
-      <View style={{ height: 0, width: 0, position: 'absolute' }}>
-        {scrapingUrl !== "" && (
-          <WebView source={{ uri: scrapingUrl }} injectedJavaScript={INJECTED_JS} userAgent={DESKTOP_UA} onMessage={onMessage} javaScriptEnabled />
-        )}
-      </View>
     </View>
   );
 }

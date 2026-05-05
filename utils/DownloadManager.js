@@ -1,5 +1,5 @@
 // src/utils/DownloadManager.js
-import { Alert, Platform, PermissionsAndroid } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import RNFS from 'react-native-fs';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 
@@ -36,7 +36,8 @@ export const startDownload = async (directVideoUrl, platformName, onProgress) =>
   console.log("Attempting final download from:", cleanUrl);
 
   const fileName = `${platformName}_${Date.now()}.mp4`;
- const filePath = `${RNFS.ExternalDirectoryPath}/${fileName}`;
+  const dir = Platform.OS === 'android' ? RNFS.ExternalDirectoryPath : RNFS.DocumentDirectoryPath;
+  const filePath = `${dir}/${fileName}`;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -64,13 +65,9 @@ xhr.onload = async () => {
           const base64data = reader.result.split(',')[1];
           await RNFS.writeFile(filePath, base64data, 'base64');
           
-          const cleanPath = Platform.OS === 'android' ? `file://${filePath}` : filePath;
-          
-          // Save to gallery
+          const cleanPath = `file://${filePath}`;
           await CameraRoll.saveAsset(cleanPath, { type: 'video', album: 'SnappySave' });
-          
-          // CHANGE THIS: Return the path instead of true
-          resolve(cleanPath); 
+          resolve(cleanPath);
         };
         reader.readAsDataURL(xhr.response);
       } else {

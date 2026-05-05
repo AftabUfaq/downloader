@@ -28,7 +28,7 @@ const PLATFORMS_DATA = [
   { name: 'twitter', icon: X, target: 'Twitter', color: '#000000', url: "https://x.com/i/status/2040454818846945754" },
   { name: 'snapchat', icon: Ghost, target: 'Snapchat', color: '#FFFC00', url: "https://www.snapchat.com/@snapchat/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYeXFtbHJpdXduAZzmEYZJAZzmEYYwAAAAAQ" },
   { name: 'pinterest', icon: Pin, target: 'Pinterest', color: '#BD081C', url: "https://pin.it/63K783cCL" },
-  { name: 'linkedin', icon: Briefcase, target: 'LinkedIn', color: '#0A66C2', url: "https://www.linkedin.com/posts/aisa-hai-future-with-zong-5g-ugcPost-7442101663563198464" },
+  { name: 'linkedin', icon: Briefcase, target: 'LinkedIn', color: '#0A66C2', url: "https://www.linkedin.com/posts/ifeomaahuna_linkedinpartner-smallbusiness-freelancer-activity-7435436169670307840-5Cm0?utm_source=li_share&utm_content=feedcontent&utm_medium=g_dt_web&utm_campaign=copy" },
   { name: 'youtube', icon: Video, target: 'YouTube', color: '#FF0000', url: "https://youtube.com/shorts/2lKj7Nkmxcc?si=ub-9VlbUiazh3Dt5" },
 ];
 

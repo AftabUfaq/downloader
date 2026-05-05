@@ -6,53 +6,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 import { useTranslation } from 'react-i18next';
 
-const { width } = Dimensions.get('window');
-
 export default function TikTokScreen({ route }) {
   const { t, i18n } = useTranslation();
   const [url, setUrl] = useState('');
-  const [scrapingUrl, setScrapingUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
-  const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
   useEffect(() => {
     if (route.params?.initialUrl) {
       setUrl(route.params.initialUrl);
     }
   }, [route.params?.initialUrl]);
-
-  const TIKTOK_JS = `
-  (function() {
-    function findCleanLink() {
-      const scripts = document.querySelectorAll('script');
-      for (let script of scripts) {
-        const content = script.textContent;
-        if (content.includes("playAddr")) {
-          const match = content.match(/"playAddr":"(.*?)"/);
-          if (match && match[1]) {
-            return match[1].replace(/\\\\u0026/g, '&').replace(/\\\\u002f/g, '/');
-          }
-        }
-      }
-      const video = document.querySelector('video');
-      if (video && video.src && !video.src.startsWith('blob')) return video.src;
-      return null;
-    }
-    let attempts = 0;
-    const interval = setInterval(() => {
-      const link = findCleanLink();
-      if (link) {
-        clearInterval(interval);
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', data: link }));
-      }
-      if (attempts++ > 10) clearInterval(interval);
-    }, 1000);
-  })();
-  `;
 
   const handleProcess = async () => {
     if (!url.toLowerCase().includes('tiktok.com')) {
@@ -64,47 +31,38 @@ export default function TikTokScreen({ route }) {
 
     setPreviewPath(null);
     setLoading(true);
-    setScrapingUrl(url);
-  };
 
-  const onScraperMessage = async (e) => {
     try {
-      const response = JSON.parse(e.nativeEvent.data);
-      if (response.type === 'error') {
-        setLoading(false);
-        setScrapingUrl('');
-        Alert.alert(t('dl_error'), t('tt_error_extract'));
-        return;
+      const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(url.trim())}`;
+      const res = await fetch(apiUrl);
+      const json = await res.json();
+
+      if (json.code !== 0 || !json.data?.play) {
+        throw new Error('No video URL returned');
       }
 
-      if (response.type === 'success') {
-        const videoUrl = response.data;
-        setScrapingUrl('');
-        try {
-          const localUri = await startDownload(videoUrl, 'TikTok', (p) => setProgress(p));
-          setPreviewPath(localUri);
+      const videoUrl = json.data.play;
 
-          const newDownload = {
-            id: Date.now().toString(),
-            title: `TikTok_${Date.now()}`,
-            path: localUri,
-            date: new Date().toLocaleDateString(),
-          };
+      const localUri = await startDownload(videoUrl, 'TikTok', (p) => setProgress(p));
+      setPreviewPath(localUri);
 
-          const existing = await AsyncStorage.getItem('recent_downloads');
-          const downloads = existing ? JSON.parse(existing) : [];
-          await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
+      const newDownload = {
+        id: Date.now().toString(),
+        title: `TikTok_${Date.now()}`,
+        path: localUri,
+        date: new Date().toLocaleDateString(),
+      };
 
-          Alert.alert(t('continue'), t('ws_save_success'));
-        } catch (err) {
-          Alert.alert(t('dl_error'), t('tt_dl_failed'));
-        } finally {
-          setLoading(false);
-          setProgress(0);
-        }
-      }
+      const existing = await AsyncStorage.getItem('recent_downloads');
+      const downloads = existing ? JSON.parse(existing) : [];
+      await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
+
+      Alert.alert(t('continue'), t('ws_save_success'));
     } catch (err) {
+      Alert.alert(t('dl_error'), t('tt_error_extract'));
+    } finally {
       setLoading(false);
+      setProgress(0);
     }
   };
 
@@ -174,18 +132,6 @@ export default function TikTokScreen({ route }) {
         </TouchableOpacity>
       </View>
 
-      {scrapingUrl !== '' && (
-        <View style={{ height: 0, width: 0, position: 'absolute' }}>
-          <WebView
-            source={{ uri: scrapingUrl }}
-            injectedJavaScript={TIKTOK_JS}
-            onMessage={onScraperMessage}
-            userAgent={DESKTOP_UA}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-          />
-        </View>
-      )}
     </View>
   );
 }
