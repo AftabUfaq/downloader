@@ -37,6 +37,13 @@
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>To Store Photos and Videos</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>To Store Photos and Videos</string>	
+	<key>NSUserTrackingUsageDescription</key>
+	<string>To Show your personalize ads</string>
+
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-9498660037072845~4884890046</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
