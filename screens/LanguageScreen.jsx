@@ -19,6 +19,16 @@ const LANGUAGES = [
   { id: '4', name: 'Arabic', subName: 'العربية', code: 'ar', flag: '🇸🇦' },
   { id: '5', name: 'Hindi', subName: 'हिन्दी', code: 'hi', flag: '🇮🇳' },
   { id: '6', name: 'Urdu', subName: 'اردو', code: 'ur', flag: '🇵🇰' },
+  { id: '7', name: 'Chinese (Simplified)', subName: '中文 (简体)', code: 'zh-CN', flag: '🇨🇳' }, // Added
+  { id: '8', name: 'Chinese (Traditional)', subName: '中文 (繁體)', code: 'zh-TW', flag: '🇹🇼' }, // Added
+  { id: '9', name: 'German', subName: 'Deutsch', code: 'de', flag: '🇩🇪' },
+  { id: '10', name: 'Portuguese', subName: 'Português', code: 'pt', flag: '🇧🇷' },
+  { id: '11', name: 'Italian', subName: 'Italiano', code: 'it', flag: '🇮🇹' },
+  { id: '12', name: 'Russian', subName: 'Pусский', code: 'ru', flag: '🇷🇺' },
+  { id: '13', name: 'Japanese', subName: '日本語', code: 'ja', flag: '🇯🇵' },
+  { id: '14', name: 'Korean', subName: '한국어', code: 'ko', flag: '🇰🇷' },
+  { id: '15', name: 'Turkish', subName: 'Türkçe', code: 'tr', flag: '🇹🇷' },
+  { id: '16', name: 'Indonesian', subName: 'Bahasa Indonesia', code: 'id', flag: '🇮🇩' },
 ];
 
 const LanguageScreen = ({ navigation, route }) => {
