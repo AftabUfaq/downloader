@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
+import { useIsFocused } from '@react-navigation/native';
 
 export default function TikTokScreen({ route }) {
   const { t, i18n } = useTranslation();
@@ -22,6 +23,7 @@ export default function TikTokScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+  const isFocused = useIsFocused();
 
   // 2. Extract theme data
   const { colors, isDarkMode } = useTheme();
@@ -84,7 +86,7 @@ export default function TikTokScreen({ route }) {
   return (
     <View style={styles.container}>
       {/* 3. Sync StatusBar */}
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+      {isFocused && <StatusBar barStyle="light-content" backgroundColor="#000000" />}
 
       <View style={styles.headerSection}>
         <Music size={50} color="#00f2ea" />
