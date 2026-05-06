@@ -5,6 +5,8 @@ import { useIsFocused } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import { PlayCircle, Trash2, Clock, Video, XCircle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next'; // 1. Import
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
+import { AD_UNIT_IDS } from '../utils/adsConfig';
 
 const { width, height } = Dimensions.get('window');
 
@@ -114,6 +116,13 @@ export default function DownloadsScreen() {
             <Text style={styles.emptyText}>{t('dl_empty')}</Text>
           </View>
         }
+      />
+      <BannerAd
+        unitId={AD_UNIT_IDS.BANNER}
+        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+        requestOptions={{
+          requestNonPersonalizedAdsOnly: true, // Good for GDPR/Initial testing
+        }}
       />
     </View>
   );

@@ -15,8 +15,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
 import { useTranslation } from 'react-i18next';
 
+// --- ADMOB IMPORT ---
+import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
+
 const { width } = Dimensions.get('window');
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
+
+// --- ADMOB CONFIGURATION ---
+// Replace the string below with your real Ad Unit ID from AdMob for production
+const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-7435562362672599/XXXXXXXXXX';
+
+const interstitial = InterstitialAd.createForAdRequest(adUnitId, {
+  requestNonPersonalizedAdsOnly: true,
+});
 
 export default function FacebookScreen({ route }) {
   const { t, i18n } = useTranslation();
@@ -25,8 +36,29 @@ export default function FacebookScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+  const [adLoaded, setAdLoaded] = useState(false); // Ad state
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
+
+  // --- ADMOB LOGIC ---
+  useEffect(() => {
+    const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+      setAdLoaded(true);
+    });
+
+    const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+      setAdLoaded(false);
+      interstitial.load(); // Pre-load next ad immediately
+    });
+
+    // Start loading the first ad
+    interstitial.load();
+
+    return () => {
+      unsubscribeLoaded();
+      unsubscribeClosed();
+    };
+  }, []);
 
   useEffect(() => {
     if (route.params?.initialUrl) {
@@ -73,6 +105,12 @@ export default function FacebookScreen({ route }) {
 
     try {
       const localUri = await startDownload(result, 'Facebook', (p) => setProgress(p));
+      
+      // --- SHOW AD IF LOADED ---
+      if (adLoaded) {
+        interstitial.show();
+      }
+
       setPreviewPath(localUri);
 
       const newDownload = {

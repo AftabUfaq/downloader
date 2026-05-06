@@ -45,6 +45,8 @@ target 'downloader' do
       config[:reactNativePath],
       :mac_catalyst_enabled => false
     )
+    node_modules_path = '../node_modules'
+  pod 'Permission-PhotoLibrary', :path => "#{node_modules_path}/react-native-permissions/ios/PhotoLibrary"
 
       installer.pods_project.targets.each do |target|
         target.build_configurations.each do |config|

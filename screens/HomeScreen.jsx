@@ -8,7 +8,7 @@ import {
   Video,
   X
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import {
   ScrollView,
   StyleSheet,
@@ -16,11 +16,16 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useTranslation } from 'react-i18next'; // 1. Import hook
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
+import { useTranslation } from 'react-i18next';
+import { BannerAd, BannerAdSize, TestIds, InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useRemoteConfig } from '../hooks/useRemoteConfig';
 
-// Define Platforms outside or inside, but we'll use t() inside the render
+// --- INTERSTITIAL CONFIG ---
+const interstitialUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-7435562362672599/YOUR_ACTUAL_ID';
+const interstitial = InterstitialAd.createForAdRequest(interstitialUnitId, {
+  requestNonPersonalizedAdsOnly: true,
+});
+
 const PLATFORMS_DATA = [
   { name: 'tiktok', icon: Music, target: 'TikTok', color: '#00f2ea', url: "https://www.tiktok.com/@liwany247/video/7613816485668080903" },
   { name: 'instagram', icon: Camera, target: 'Instagram', color: '#E1306C', url: "https://www.instagram.com/reel/DOrD8anCKNH/" },
@@ -33,26 +38,60 @@ const PLATFORMS_DATA = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { t } = useTranslation(); // 2. Initialize translation
+  const { t } = useTranslation();
   const isAdsEnabled = useRemoteConfig();
+  const [adLoaded, setAdLoaded] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+
+  // Load Interstitial on Mount
+  useEffect(() => {
+    const loadUnsubscribe = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+      setAdLoaded(true);
+    });
+
+    const closeUnsubscribe = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+      setAdLoaded(false);
+      // When ad is closed, navigate to the saved destination
+      if (pendingNavigation) {
+        navigation.navigate(pendingNavigation.target, { initialUrl: pendingNavigation.url });
+        setPendingNavigation(null);
+      }
+      interstitial.load(); // Load the next one
+    });
+
+    interstitial.load();
+
+    return () => {
+      loadUnsubscribe();
+      closeUnsubscribe();
+    };
+  }, [pendingNavigation]);
+
+  const handlePlatformClick = (app) => {
+    if (isAdsEnabled && adLoaded) {
+      // Save where we want to go
+      setPendingNavigation(app);
+      // Show the ad
+      interstitial.show();
+    } else {
+      // If no ad or ads disabled, just go immediately
+      navigation.navigate(app.target, { initialUrl: app.url });
+    }
+  };
 
   return (
     <View style={styles.mainWrapper}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* 3. Translated Header */}
         <Text style={styles.headerTitle}>{t('home_title')}</Text>
 
         <View style={styles.gridContainer}>
           {PLATFORMS_DATA.map((app) => (
             <TouchableOpacity
               key={app.name}
-              onPress={() => {
-                navigation.navigate(app.target, { initialUrl: app.url });
-              }}
+              onPress={() => handlePlatformClick(app)}
               style={styles.gridItem}
             >
               <app.icon size={24} color={app.color} />
-              {/* 4. Translated Platform Name */}
               <Text style={styles.gridText}>{t(app.name)}</Text>
             </TouchableOpacity>
           ))}
@@ -72,29 +111,10 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  mainWrapper: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  container: {
-    flexGrow: 1,
-    padding: 20,
-    paddingTop: 50,
-    paddingBottom: 20, // Add space so the grid isn't hidden behind the ad
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#1A1A1A',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
+  mainWrapper: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flexGrow: 1, padding: 20, paddingTop: 50, paddingBottom: 20 },
+  headerTitle: { fontSize: 28, fontWeight: '900', color: '#1A1A1A', marginBottom: 20, textAlign: 'center' },
+  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
   gridItem: {
     width: '48%',
     backgroundColor: '#FFF',
@@ -102,20 +122,13 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginBottom: 12,
     alignItems: 'center',
-    // Shadow for Android/iOS
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  gridText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 8,
-    color: '#333',
-  },
-  // Style for the Ad Container
+  gridText: { fontSize: 12, fontWeight: '600', marginTop: 8, color: '#333' },
   adContainer: {
     width: '100%',
     alignItems: 'center',
@@ -124,6 +137,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
     paddingVertical: 5,
-    minHeight: 60, // Prevents layout jumping when ad loads
+    minHeight: 60,
   },
 });
