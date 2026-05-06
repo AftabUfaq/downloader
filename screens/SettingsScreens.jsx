@@ -24,23 +24,16 @@ import {
 } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext';
 
 const SettingsScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { isDarkMode, toggleTheme, colors } = useTheme();
 
   // Detect RTL for Arabic and Urdu
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
-  // Dynamic Theme Colors
-  const theme = {
-    background: isDarkMode ? '#121212' : '#F8F9FA',
-    card: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-    text: isDarkMode ? '#FFFFFF' : '#1A1A1A',
-    subText: isDarkMode ? '#AAAAAA' : '#666666',
-    iconBg: isDarkMode ? '#333333' : '#F0F7FF',
-    border: isDarkMode ? '#333333' : '#EEEEEE',
-  };
+  
 
   // --- HANDLER FUNCTIONS ---
 
@@ -88,7 +81,7 @@ const SettingsScreen = ({ navigation }) => {
     <TouchableOpacity 
       style={[
         styles.card, 
-        { backgroundColor: theme.card, flexDirection: isRTL ? 'row-reverse' : 'row' }
+        { backgroundColor: colors.card, flexDirection: isRTL ? 'row-reverse' : 'row' }
       ]} 
       onPress={onPress}
       disabled={showSwitch}
@@ -96,14 +89,14 @@ const SettingsScreen = ({ navigation }) => {
     >
       <View style={[
         styles.iconContainer, 
-        { backgroundColor: theme.iconBg, [isRTL ? 'marginLeft' : 'marginRight']: 15 }
+        { backgroundColor: colors.iconBg, [isRTL ? 'marginLeft' : 'marginRight']: 15 }
       ]}>
-        <Icon size={22} color={isDarkMode ? '#BB86FC' : '#2196F3'} strokeWidth={2} />
+        <Icon size={22} color={colors.accent} strokeWidth={2} />
       </View>
       
       <View style={[styles.textContainer, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>{title}</Text>
-        <Text style={[styles.cardSubtitle, { color: theme.subText, textAlign: isRTL ? 'right' : 'left' }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.cardSubtitle, { color: colors.subText, textAlign: isRTL ? 'right' : 'left' }]}>
           {subtitle}
         </Text>
       </View>
@@ -111,28 +104,28 @@ const SettingsScreen = ({ navigation }) => {
       {showSwitch ? (
         <Switch 
           value={isDarkMode} 
-          onValueChange={() => setIsDarkMode(!isDarkMode)}
-          trackColor={{ false: "#767577", true: "#BB86FC" }}
+          onValueChange={toggleTheme}
+          trackColor={{ false: "#767577", true:colors.accent }}
         />
       ) : (
         <View style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
-          <ChevronRight size={20} color={theme.subText} />
+          <ChevronRight size={20} color={colors.subText} />
         </View>
       )}
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <StatusBar 
         barStyle={isDarkMode ? "light-content" : "dark-content"} 
-        backgroundColor={theme.background} 
+        backgroundColor={colors.background} 
       />
       
       <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>{t('settings_header')}</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('settings_header')}</Text>
         <TouchableOpacity onPress={handleShareApp}>
-          <Share2 size={22} color={theme.text} />
+          <Share2 size={22} color={colors.text} />
         </TouchableOpacity>
       </View>
 
@@ -153,7 +146,7 @@ const SettingsScreen = ({ navigation }) => {
         </TouchableOpacity>
 
         {/* APPEARANCE */}
-        <Text style={[styles.sectionLabel, { color: theme.subText, textAlign: isRTL ? 'right' : 'left' }]}>
+        <Text style={[styles.sectionLabel, { color: colors.subText, textAlign: isRTL ? 'right' : 'left' }]}>
           {t('label_appearance')}
         </Text>
         <SettingItem 
@@ -164,18 +157,18 @@ const SettingsScreen = ({ navigation }) => {
         />
 
         {/* LOCALIZATION */}
-        <Text style={[styles.sectionLabel, { color: theme.subText, textAlign: isRTL ? 'right' : 'left' }]}>
+        <Text style={[styles.sectionLabel, { color: colors.subText, textAlign: isRTL ? 'right' : 'left' }]}>
           {t('label_language')}
         </Text>
         <SettingItem 
           icon={Languages} 
           title={t('change_lang')} 
           subtitle={t('change_lang_sub')} 
-          onPress={() => navigation.navigate('Language')}
+          onPress={() => navigation.navigate('Language', { isSettingFlow: true })}
         />
 
         {/* SUPPORT & LEGAL */}
-        <Text style={[styles.sectionLabel, { color: theme.subText, textAlign: isRTL ? 'right' : 'left' }]}>
+        <Text style={[styles.sectionLabel, { color: colors.subText, textAlign: isRTL ? 'right' : 'left' }]}>
           {t('label_general')}
         </Text>
         <SettingItem 
@@ -205,7 +198,7 @@ const SettingsScreen = ({ navigation }) => {
 
         {/* FOOTER */}
         <View style={styles.footer}>
-          <Text style={[styles.versionText, { color: theme.subText }]}>{t('version')}</Text>
+          <Text style={[styles.versionText, { color: colors.subText }]}>{t('version')}</Text>
         </View>
 
       </ScrollView>

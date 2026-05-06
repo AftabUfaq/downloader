@@ -1,21 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Modal, Dimensions } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert, Modal, Dimensions, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused } from '@react-navigation/native';
 import { WebView } from 'react-native-webview';
 import { PlayCircle, Trash2, Clock, Video, XCircle } from 'lucide-react-native';
-import { useTranslation } from 'react-i18next'; // 1. Import
+import { useTranslation } from 'react-i18next';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import { AD_UNIT_IDS } from '../utils/adsConfig';
+import { useTheme } from '../context/ThemeContext'; // 1. Import your theme hook
 
 const { width, height } = Dimensions.get('window');
 
 export default function DownloadsScreen() {
-  const { t, i18n } = useTranslation(); // 2. Initialize
+  const { t, i18n } = useTranslation();
   const [list, setList] = useState([]);
   const [playingPath, setPlayingPath] = useState(null);
   const isFocused = useIsFocused();
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
+
+  // 2. Access the theme
+  const { colors, isDarkMode } = useTheme();
+
+  // 3. Create dynamic styles
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const loadDownloads = async () => {
     try {
@@ -43,15 +50,16 @@ export default function DownloadsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header with RTL support */}
+      {/* 4. Sync StatusBar with theme */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={[styles.header, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-        <Clock color="#00f2ea" size={28} />
+        <Clock color={colors.accent} size={28} />
         <Text style={[styles.headerTitle, { marginLeft: isRTL ? 0 : 10, marginRight: isRTL ? 10 : 0 }]}>
           {t('dl_header')}
         </Text>
       </View>
 
-      {/* --- VIDEO PLAYER MODAL --- */}
       <Modal
         visible={!!playingPath}
         transparent={true}
@@ -101,7 +109,7 @@ export default function DownloadsScreen() {
             
             <View style={[styles.actions, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
               <TouchableOpacity onPress={() => handlePlay(item.path)} style={{ marginHorizontal: 15 }}>
-                <PlayCircle color="#00f2ea" size={32} />
+                <PlayCircle color={colors.accent} size={32} />
               </TouchableOpacity>
               
               <TouchableOpacity onPress={() => handleDelete(item.id)}>
@@ -112,43 +120,101 @@ export default function DownloadsScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Video color="#eee" size={80} />
+            <Video color={colors.border} size={80} />
             <Text style={styles.emptyText}>{t('dl_empty')}</Text>
           </View>
         }
       />
-      <BannerAd
-        unitId={AD_UNIT_IDS.BANNER}
-        size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: true, // Good for GDPR/Initial testing
-        }}
-      />
+      
+      <View style={styles.adWrapper}>
+        <BannerAd
+            unitId={AD_UNIT_IDS.BANNER}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+        />
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { alignItems: 'center', marginTop: 50, marginBottom: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#000' },
+// 5. Dynamic Stylesheet function
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, // Dynamic
+    padding: 20 
+  },
+  header: { 
+    alignItems: 'center', 
+    marginTop: 50, 
+    marginBottom: 20 
+  },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: colors.text // Dynamic
+  },
   card: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card, // Dynamic
     padding: 15,
     borderRadius: 15,
     alignItems: 'center',
     marginBottom: 12,
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
+    shadowRadius: 4,
   },
   info: { flex: 1 },
-  videoTitle: { fontSize: 16, fontWeight: '700', color: '#333' },
-  date: { fontSize: 12, color: '#999', marginTop: 4 },
+  videoTitle: { 
+    fontSize: 16, 
+    fontWeight: '700', 
+    color: colors.text // Dynamic
+  },
+  date: { 
+    fontSize: 12, 
+    color: colors.subText, // Dynamic 
+    marginTop: 4 
+  },
   actions: { alignItems: 'center' },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
-  emptyText: { textAlign: 'center', marginTop: 10, color: '#999', fontSize: 16 },
-  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center' },
-  playerBox: { width: width * 0.95, height: height * 0.6, backgroundColor: '#FFF', borderRadius: 20, overflow: 'hidden', paddingBottom: 10 },
-  modalHeader: { justifyContent: 'space-between', alignItems: 'center', padding: 15 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  webviewWrapper: { flex: 1, backgroundColor: '#000' }
+  emptyText: { 
+    textAlign: 'center', 
+    marginTop: 10, 
+    color: colors.subText, // Dynamic
+    fontSize: 16 
+  },
+  modalContainer: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  playerBox: { 
+    width: width * 0.95, 
+    height: height * 0.6, 
+    backgroundColor: colors.card, // Dynamic
+    borderRadius: 20, 
+    overflow: 'hidden', 
+    paddingBottom: 10 
+  },
+  modalHeader: { 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 15 
+  },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: colors.text // Dynamic
+  },
+  webviewWrapper: { 
+    flex: 1, 
+    backgroundColor: '#000' 
+  },
+  adWrapper: {
+    alignItems: 'center',
+    backgroundColor: colors.background
+  }
 });

@@ -8,19 +8,23 @@ import {
   Video,
   X
 } from 'lucide-react-native';
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  StatusBar
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+// Restored Ad Imports
 import { BannerAd, BannerAdSize, TestIds, InterstitialAd, AdEventType } from 'react-native-google-mobile-ads';
 import { useRemoteConfig } from '../hooks/useRemoteConfig';
+import { useTheme } from '../context/ThemeContext';
 
 // --- INTERSTITIAL CONFIG ---
+// Replace with your real ID in production
 const interstitialUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-7435562362672599/YOUR_ACTUAL_ID';
 const interstitial = InterstitialAd.createForAdRequest(interstitialUnitId, {
   requestNonPersonalizedAdsOnly: true,
@@ -39,11 +43,14 @@ const PLATFORMS_DATA = [
 
 export default function HomeScreen({ navigation }) {
   const { t } = useTranslation();
-  const isAdsEnabled = useRemoteConfig();
+  const isAdsEnabled = useRemoteConfig(); // Getting remote config value
   const [adLoaded, setAdLoaded] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
+  
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDarkMode), [colors, isDarkMode]);
 
-  // Load Interstitial on Mount
+  // Handle Interstitial Logic
   useEffect(() => {
     const loadUnsubscribe = interstitial.addAdEventListener(AdEventType.LOADED, () => {
       setAdLoaded(true);
@@ -51,36 +58,41 @@ export default function HomeScreen({ navigation }) {
 
     const closeUnsubscribe = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
       setAdLoaded(false);
-      // When ad is closed, navigate to the saved destination
+      // Execute the navigation we paused for the ad
       if (pendingNavigation) {
         navigation.navigate(pendingNavigation.target, { initialUrl: pendingNavigation.url });
         setPendingNavigation(null);
       }
-      interstitial.load(); // Load the next one
+      interstitial.load(); // Load next one
     });
 
-    interstitial.load();
+    // Start loading ad if enabled
+    if (isAdsEnabled) {
+      interstitial.load();
+    }
 
     return () => {
       loadUnsubscribe();
       closeUnsubscribe();
     };
-  }, [pendingNavigation]);
+  }, [pendingNavigation, isAdsEnabled]);
 
   const handlePlatformClick = (app) => {
     if (isAdsEnabled && adLoaded) {
-      // Save where we want to go
       setPendingNavigation(app);
-      // Show the ad
       interstitial.show();
     } else {
-      // If no ad or ads disabled, just go immediately
       navigation.navigate(app.target, { initialUrl: app.url });
     }
   };
 
   return (
     <View style={styles.mainWrapper}>
+      <StatusBar 
+        barStyle={isDarkMode ? 'light-content' : 'dark-content'} 
+        backgroundColor={colors.background} 
+      />
+      
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.headerTitle}>{t('home_title')}</Text>
 
@@ -98,11 +110,13 @@ export default function HomeScreen({ navigation }) {
         </View>
       </ScrollView>
 
+      {/* Banner Ad Restored */}
       {isAdsEnabled && (
         <View style={styles.adContainer}>
           <BannerAd
             unitId={TestIds.BANNER}
             size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            onAdFailedToLoad={(error) => console.log('Banner failed:', error)}
           />
         </View>
       )}
@@ -110,33 +124,57 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  mainWrapper: { flex: 1, backgroundColor: '#F8F9FA' },
-  container: { flexGrow: 1, padding: 20, paddingTop: 50, paddingBottom: 20 },
-  headerTitle: { fontSize: 28, fontWeight: '900', color: '#1A1A1A', marginBottom: 20, textAlign: 'center' },
-  gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 },
+const createStyles = (colors, isDarkMode) => StyleSheet.create({
+  mainWrapper: { 
+    flex: 1, 
+    backgroundColor: colors.background 
+  },
+  container: { 
+    flexGrow: 1, 
+    padding: 20, 
+    paddingTop: 50, 
+    paddingBottom: 20 
+  },
+  headerTitle: { 
+    fontSize: 28, 
+    fontWeight: '900', 
+    color: colors.text, 
+    marginBottom: 20, 
+    textAlign: 'center' 
+  },
+  gridContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between', 
+    marginBottom: 20 
+  },
   gridItem: {
     width: '48%',
-    backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 15,
-    marginBottom: 12,
+    backgroundColor: colors.card,
+    padding: 20, // Increased padding for better design
+    borderRadius: 18, // Rounded corners
+    marginBottom: 15,
     alignItems: 'center',
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: isDarkMode ? 0.4 : 0.1,
+    shadowRadius: 5,
   },
-  gridText: { fontSize: 12, fontWeight: '600', marginTop: 8, color: '#333' },
+  gridText: { 
+    fontSize: 14, // Slightly larger text
+    fontWeight: 'bold', 
+    marginTop: 10, 
+    color: colors.text 
+  },
   adContainer: {
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-    paddingVertical: 5,
-    minHeight: 60,
+    borderTopColor: colors.border,
+    paddingVertical: 10,
+    minHeight: 70,
   },
 });

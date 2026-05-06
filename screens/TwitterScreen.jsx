@@ -1,11 +1,23 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, PermissionsAndroid } from "react-native";
+import React, { useEffect, useState, useMemo } from "react";
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Platform, 
+  PermissionsAndroid,
+  StatusBar // Added StatusBar
+} from "react-native";
 import { WebView } from "react-native-webview";
 import { X, XCircle } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RNFS from "react-native-fs";
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { useTranslation } from "react-i18next";
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -15,6 +27,10 @@ export default function TwitterScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+
+  // 2. Extract theme data
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
@@ -101,7 +117,6 @@ export default function TwitterScreen({ route }) {
         throw new Error('No video found');
       }
 
-      // Pick highest quality
       const best = videos.reduce((a, b) => (b.width > a.width ? b : a));
       const videoUrl = best.url;
 
@@ -130,8 +145,12 @@ export default function TwitterScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.header}>
-        <X size={50} color="#000" />
+        {/* X Logo now matches theme text color */}
+        <X size={50} color={colors.text} />
         <Text style={styles.title}>{t('tw_header')}</Text>
       </View>
 
@@ -161,7 +180,7 @@ export default function TwitterScreen({ route }) {
       <TextInput
         style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
         placeholder={t('tw_placeholder')}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.subText}
         value={url}
         editable={!loading}
         onChangeText={setUrl}
@@ -169,31 +188,86 @@ export default function TwitterScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#000" />
+          <ActivityIndicator color={colors.text} />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('tw_downloading')} ${progress}%` : t('tw_extracting')}
           </Text>
         </View>
       )}
 
-      <TouchableOpacity style={[styles.btn, loading && { opacity: 0.6 }]} onPress={handleProcess} disabled={loading}>
+      <TouchableOpacity 
+        style={[styles.btn, loading && { opacity: 0.6 }]} 
+        onPress={handleProcess} 
+        disabled={loading}
+      >
         <Text style={styles.btnText}>{loading ? t('tw_btn_wait') : t('tw_btn_dl')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F8F9FA", padding: 20 },
-  header: { alignItems: "center", marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: "bold", marginTop: 10, color: '#000' },
-  previewContainer: { marginBottom: 20 },
-  previewHeader: { justifyContent: "space-between", marginBottom: 5 },
-  previewLabel: { fontWeight: "bold", color: "#333" },
-  videoBox: { height: 230, borderRadius: 15, overflow: "hidden", backgroundColor: "#000" },
-  input: { backgroundColor: "#FFF", padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: "#eee", color: "#000" },
-  btn: { backgroundColor: "#000", padding: 18, borderRadius: 12, alignItems: "center" },
-  btnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
-  loaderContainer: { alignItems: "center", marginBottom: 20 },
-  progressText: { marginTop: 8, color: "#666", fontWeight: '600' },
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, 
+    padding: 20 
+  },
+  header: { 
+    alignItems: "center", 
+    marginTop: 40, 
+    marginBottom: 20 
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: "bold", 
+    marginTop: 10, 
+    color: colors.text 
+  },
+  previewContainer: { 
+    marginBottom: 20 
+  },
+  previewHeader: { 
+    justifyContent: "space-between", 
+    marginBottom: 8 
+  },
+  previewLabel: { 
+    fontWeight: "bold", 
+    color: colors.text 
+  },
+  videoBox: { 
+    height: 230, 
+    borderRadius: 15, 
+    overflow: "hidden", 
+    backgroundColor: "#000" 
+  },
+  input: { 
+    backgroundColor: colors.card, 
+    padding: 15, 
+    borderRadius: 12, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: colors.border, 
+    color: colors.text 
+  },
+  btn: { 
+    backgroundColor: isDarkMode ? '#FFF' : '#000', // Switch button color for dark mode
+    padding: 18, 
+    borderRadius: 12, 
+    alignItems: "center" 
+  },
+  btnText: { 
+    color: isDarkMode ? '#000' : '#FFF', 
+    fontWeight: "bold", 
+    fontSize: 16 
+  },
+  loaderContainer: { 
+    alignItems: "center", 
+    marginBottom: 20 
+  },
+  progressText: { 
+    marginTop: 8, 
+    color: colors.subText, 
+    fontWeight: '600' 
+  },
 });

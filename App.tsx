@@ -13,6 +13,7 @@ import { useAppOpenAd } from './hooks/useAppOpenAd';
 
 import './localization/i18n'; 
 import { useRemoteConfig } from './hooks/useRemoteConfig';
+import { ThemeProvider } from './context/ThemeContext';
 
 import LanguageScreen from './screens/LanguageScreen';
 import SecondaryLanguageScreen from './screens/SecondaryLanguageScreen';
@@ -64,34 +65,40 @@ export default function App() {
   }, []);
 
   return (
+   <ThemeProvider>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
         <StatusBar barStyle="dark-content" backgroundColor="#F8F9FA" />
         
-        <Stack.Navigator 
-          initialRouteName={!isAppReady ? "Language" : "MainApp"}
-          screenOptions={{ headerShown: false }}
-        >
-          <Stack.Screen name="Language" component={LanguageScreen} />
-          <Stack.Screen name="SecondaryLanguage" component={SecondaryLanguageScreen} />
-          <Stack.Screen name="Permissions" component={PermissionsScreen} />
-          
-          <Stack.Screen name="Onboarding">
-            {(props: any) => (
-              <OnboardingScreen 
-                {...props} 
-                onDone={async () => {
-                  await AsyncStorage.setItem('hasFinishedOnboarding', 'true');
-                  setIsAppReady(true);
-                }} 
-              />
-            )}
-          </Stack.Screen>
+      // Inside App.tsx Stack.Navigator
+<Stack.Navigator 
 
-          <Stack.Screen name="MainApp" component={TabNavigator} />
-          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-        </Stack.Navigator>
+  initialRouteName={!isAppReady ? "Language" : "MainApp"} 
+  screenOptions={{ headerShown: false }}
+>
+  <Stack.Screen name="Language" component={LanguageScreen} />
+  <Stack.Screen name="SecondaryLanguage" component={SecondaryLanguageScreen} />
+  <Stack.Screen name="Permissions" component={PermissionsScreen} />
+  
+  <Stack.Screen name="Onboarding">
+    {(props: any) => (
+      <OnboardingScreen 
+        {...props} 
+        onDone={async () => {
+          await AsyncStorage.setItem('hasFinishedOnboarding', 'true');
+          // Navigate to MainApp instead of just setting state if needed
+          props.navigation.replace("MainApp");
+        }} 
+      />
+    )}
+  </Stack.Screen>
+
+  {/* IMPORTANT: Ensure this name "MainApp" matches your navigation.reset call */}
+  <Stack.Screen name="MainApp" component={TabNavigator} />
+  <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+</Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>
+    </ThemeProvider>
   );
 }

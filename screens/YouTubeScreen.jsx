@@ -1,5 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Platform,
+  StatusBar // Added StatusBar
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Video, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +17,7 @@ import RNFS from 'react-native-fs';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { requestStoragePermission } from '../utils/DownloadManager';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -17,6 +28,10 @@ export default function YouTubeScreen({ route }) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState(''); // 'extracting' | 'downloading'
   const [previewPath, setPreviewPath] = useState(null);
+
+  // 2. Extract theme data
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
@@ -37,7 +52,6 @@ export default function YouTubeScreen({ route }) {
     setStatus('extracting');
 
     try {
-      // Step 1: Submit URL — loader.to processes it server-side
       const submitRes = await fetch(
         `https://loader.to/ajax/download.php?button=1&start=1&end=1&format=720&url=${encodeURIComponent(url.trim())}`
       );
@@ -47,7 +61,6 @@ export default function YouTubeScreen({ route }) {
         throw new Error('Submission failed');
       }
 
-      // Step 2: Poll progress_url until download_url is ready (max 60s)
       let downloadUrl = null;
       for (let i = 0; i < 30; i++) {
         await new Promise(r => setTimeout(r, 2000));
@@ -61,7 +74,6 @@ export default function YouTubeScreen({ route }) {
 
       if (!downloadUrl) throw new Error('Timeout waiting for video');
 
-      // Step 3: Download the MP4
       setStatus('downloading');
       const fileName = `YouTube_${Date.now()}.mp4`;
       const dir = Platform.OS === 'android' ? RNFS.ExternalDirectoryPath : RNFS.DocumentDirectoryPath;
@@ -110,6 +122,9 @@ export default function YouTubeScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.header}>
         <Video size={50} color="#FF0000" />
         <Text style={styles.title}>{t('yt_header')}</Text>
@@ -144,7 +159,7 @@ export default function YouTubeScreen({ route }) {
         onChangeText={setUrl}
         value={url}
         editable={!loading}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.subText} // Dynamic placeholder color
       />
 
       {loading && (
@@ -165,17 +180,69 @@ export default function YouTubeScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#000', marginTop: 10 },
-  previewContainer: { marginBottom: 20 },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
-  previewLabel: { fontWeight: 'bold', color: '#666' },
-  videoBox: { height: 230, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000' },
-  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
-  btn: { backgroundColor: '#FF0000', padding: 18, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  loaderContainer: { marginBottom: 20, alignItems: 'center' },
-  progressText: { marginTop: 8, color: '#666', fontWeight: '600' },
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, 
+    padding: 20 
+  },
+  header: { 
+    alignItems: 'center', 
+    marginTop: 40, 
+    marginBottom: 20 
+  },
+  title: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: colors.text, 
+    marginTop: 10 
+  },
+  previewContainer: { 
+    marginBottom: 20 
+  },
+  previewHeader: { 
+    justifyContent: 'space-between', 
+    marginBottom: 8, 
+    alignItems: 'center' 
+  },
+  previewLabel: { 
+    fontWeight: 'bold', 
+    color: colors.subText 
+  },
+  videoBox: { 
+    height: 230, 
+    borderRadius: 15, 
+    overflow: 'hidden', 
+    backgroundColor: '#000' 
+  },
+  input: { 
+    backgroundColor: colors.card, 
+    padding: 15, 
+    borderRadius: 12, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: colors.border, 
+    color: colors.text 
+  },
+  btn: { 
+    backgroundColor: '#FF0000', 
+    padding: 18, 
+    borderRadius: 12, 
+    alignItems: 'center' 
+  },
+  btnText: { 
+    color: '#FFF', 
+    fontSize: 16, 
+    fontWeight: 'bold' 
+  },
+  loaderContainer: { 
+    marginBottom: 20, 
+    alignItems: 'center' 
+  },
+  progressText: { 
+    marginTop: 8, 
+    color: colors.subText, 
+    fontWeight: '600' 
+  },
 });

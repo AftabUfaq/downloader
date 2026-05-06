@@ -1,5 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform } from 'react-native';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Platform,
+  StatusBar // Added StatusBar
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ghost, XCircle } from 'lucide-react-native';
 import RNFS from 'react-native-fs';
@@ -7,6 +17,7 @@ import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestStoragePermission } from '../utils/DownloadManager'; 
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
@@ -17,6 +28,10 @@ export default function SnapchatScreen({route}) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null); 
+
+  // 2. Extract theme data
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const activeRequestId = useRef(null);
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
@@ -141,6 +156,9 @@ export default function SnapchatScreen({route}) {
 
   return (
     <View style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.iconWrapper}>
         <Ghost size={50} color="#000" />
       </View>
@@ -176,7 +194,7 @@ export default function SnapchatScreen({route}) {
       <TextInput 
         style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
         placeholder={t('sc_placeholder')} 
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.subText}
         onChangeText={setUrl} 
         value={url}
         autoCapitalize="none"
@@ -185,7 +203,7 @@ export default function SnapchatScreen({route}) {
       
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#000" />
+          <ActivityIndicator color={colors.text} />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('sc_saving')} ${progress}%` : t('sc_processing')}
           </Text>
@@ -215,17 +233,75 @@ export default function SnapchatScreen({route}) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20, justifyContent: 'center' },
-  iconWrapper: { alignSelf: 'center', backgroundColor: '#FFFC00', padding: 15, borderRadius: 20, marginBottom: 10 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#000', textAlign: 'center', marginBottom: 20 },
-  previewContainer: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8 },
-  previewLabel: { fontWeight: 'bold', color: '#000' },
-  videoBox: { height: 300, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
-  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, fontSize: 16, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
-  btn: { backgroundColor: '#FFFC00', padding: 18, borderRadius: 15, alignItems: 'center' },
-  btnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
-  loaderContainer: { marginBottom: 20, alignItems: 'center' },
-  progressText: { marginTop: 8, color: '#666', fontWeight: '600' }
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, // Dynamic
+    padding: 20, 
+    justifyContent: 'center' 
+  },
+  iconWrapper: { 
+    alignSelf: 'center', 
+    backgroundColor: '#FFFC00', // Branded Yellow
+    padding: 15, 
+    borderRadius: 20, 
+    marginBottom: 10 
+  },
+  title: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: colors.text, // Dynamic
+    textAlign: 'center', 
+    marginBottom: 20 
+  },
+  previewContainer: { 
+    marginBottom: 20, 
+    width: '100%' 
+  },
+  previewHeader: { 
+    justifyContent: 'space-between', 
+    marginBottom: 8 
+  },
+  previewLabel: { 
+    fontWeight: 'bold', 
+    color: colors.text // Dynamic
+  },
+  videoBox: { 
+    height: 300, 
+    borderRadius: 15, 
+    overflow: 'hidden', 
+    backgroundColor: '#000', 
+    elevation: 4 
+  },
+  input: { 
+    backgroundColor: colors.card, // Dynamic
+    padding: 15, 
+    borderRadius: 12, 
+    fontSize: 16, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: colors.border, // Dynamic
+    color: colors.text // Dynamic
+  },
+  btn: { 
+    backgroundColor: '#FFFC00', // Branded Yellow
+    padding: 18, 
+    borderRadius: 15, 
+    alignItems: 'center' 
+  },
+  btnText: { 
+    color: '#000', 
+    fontSize: 16, 
+    fontWeight: 'bold' 
+  },
+  loaderContainer: { 
+    marginBottom: 20, 
+    alignItems: 'center' 
+  },
+  progressText: { 
+    marginTop: 8, 
+    color: colors.subText, // Dynamic
+    fontWeight: '600' 
+  }
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -6,15 +6,20 @@ import {
   TouchableOpacity, 
   SafeAreaView, 
   Alert,
-  Platform 
+  Platform,
+  StatusBar // Added StatusBar
 } from 'react-native';
 import { request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-import { useTranslation } from 'react-i18next'; // Localization Hook
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
 
 const PermissionsScreen = ({ navigation }) => {
   const { t, i18n } = useTranslation();
 
-  // Check if current language is RTL (Arabic or Urdu)
+  // 2. Extract theme data
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
+
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
   const requestStoragePermission = async () => {
@@ -24,8 +29,6 @@ const PermissionsScreen = ({ navigation }) => {
       if (Platform.OS === 'ios') {
         permissionType = PERMISSIONS.IOS.PHOTO_LIBRARY;
       } else {
-        // Android 13+ (API 33) uses READ_MEDIA_VIDEO/IMAGES
-        // Older versions use WRITE_EXTERNAL_STORAGE
         permissionType = Platform.Version >= 33 
           ? PERMISSIONS.ANDROID.READ_MEDIA_VIDEO 
           : PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE;
@@ -39,10 +42,9 @@ const PermissionsScreen = ({ navigation }) => {
         Alert.alert(
           t('perm_blocked_title'),
           t('perm_blocked_desc'),
-          [{ text: t('continue') }] // Reusing continue key for the alert button
+          [{ text: t('continue') }]
         );
       } else {
-        // If denied but not blocked, we move to onboarding so they can still see the app
         navigation.navigate('Onboarding');
       }
     } catch (error) {
@@ -53,6 +55,9 @@ const PermissionsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.content}>
         {/* Visual Icon Area */}
         <View style={styles.iconCircle}>
@@ -68,9 +73,9 @@ const PermissionsScreen = ({ navigation }) => {
         </Text>
 
         <View style={[styles.featureList, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-          <Text style={styles.featureItem}>{t('perm_feature_1')}</Text>
-          <Text style={styles.featureItem}>{t('perm_feature_2')}</Text>
-          <Text style={styles.featureItem}>{t('perm_feature_3')}</Text>
+          <Text style={styles.featureItem}>• {t('perm_feature_1')}</Text>
+          <Text style={styles.featureItem}>• {t('perm_feature_2')}</Text>
+          <Text style={styles.featureItem}>• {t('perm_feature_3')}</Text>
         </View>
       </View>
 
@@ -90,10 +95,11 @@ const PermissionsScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#FFFFFF' 
+    backgroundColor: colors.background // Dynamic
   },
   content: { 
     flex: 1, 
@@ -105,9 +111,9 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#FFFBE6',
+    backgroundColor: isDarkMode ? '#2D2A00' : '#FFFBE6', // Deeper yellow in Dark Mode
     borderWidth: 2,
-    borderColor: '#FFE600',
+    borderColor: '#FFE600', // Brand Yellow
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 30,
@@ -118,13 +124,13 @@ const styles = StyleSheet.create({
   title: { 
     fontSize: 28, 
     fontWeight: 'bold', 
-    color: '#000', 
+    color: colors.text, // Dynamic
     marginBottom: 15,
     width: '100%'
   },
   description: { 
     fontSize: 16, 
-    color: '#666', 
+    color: colors.subText, // Dynamic
     lineHeight: 24,
     marginBottom: 30,
     width: '100%'
@@ -136,14 +142,14 @@ const styles = StyleSheet.create({
   featureItem: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: colors.text, // Dynamic
     marginVertical: 8,
   },
   footer: { 
     padding: 20 
   },
   primaryButton: {
-    backgroundColor: '#FFE600',
+    backgroundColor: '#FFE600', // Brand Yellow
     paddingVertical: 18,
     borderRadius: 18,
     alignItems: 'center',
@@ -151,7 +157,7 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
     shadowRadius: 4,
   },
   buttonText: { 
@@ -165,7 +171,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { 
     fontSize: 16, 
-    color: '#999', 
+    color: colors.subText, // Dynamic
     fontWeight: '600' 
   },
 });

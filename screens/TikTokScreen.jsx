@@ -1,10 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  StatusBar // Added StatusBar
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Music, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
 
 export default function TikTokScreen({ route }) {
   const { t, i18n } = useTranslation();
@@ -12,6 +22,10 @@ export default function TikTokScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+
+  // 2. Extract theme data
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
@@ -58,6 +72,7 @@ export default function TikTokScreen({ route }) {
       await AsyncStorage.setItem('recent_downloads', JSON.stringify([newDownload, ...downloads]));
 
       Alert.alert(t('continue'), t('ws_save_success'));
+      setUrl('');
     } catch (err) {
       Alert.alert(t('dl_error'), t('tt_error_extract'));
     } finally {
@@ -68,6 +83,9 @@ export default function TikTokScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.headerSection}>
         <Music size={50} color="#00f2ea" />
         <Text style={styles.title}>{t('tt_header')}</Text>
@@ -104,7 +122,7 @@ export default function TikTokScreen({ route }) {
         <TextInput
           style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
           placeholder={t('tt_placeholder')}
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.subText}
           editable={!loading}
           onChangeText={setUrl}
           value={url}
@@ -131,18 +149,41 @@ export default function TikTokScreen({ route }) {
           </Text>
         </TouchableOpacity>
       </View>
-
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  headerSection: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#000', marginTop: 10 },
-  previewCard: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 5 },
-  previewLabel: { fontWeight: 'bold', color: '#333' },
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, 
+    padding: 20 
+  },
+  headerSection: { 
+    alignItems: 'center', 
+    marginTop: 40, 
+    marginBottom: 20 
+  },
+  title: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: colors.text, 
+    marginTop: 10 
+  },
+  previewCard: { 
+    marginBottom: 20, 
+    width: '100%' 
+  },
+  previewHeader: { 
+    justifyContent: 'space-between', 
+    marginBottom: 10, 
+    paddingHorizontal: 5 
+  },
+  previewLabel: { 
+    fontWeight: 'bold', 
+    color: colors.text 
+  },
   videoContainer: {
     height: 250,
     backgroundColor: '#000',
@@ -150,23 +191,23 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     elevation: 5,
     shadowColor: '#000',
-    shadowOpacity: 0.2,
+    shadowOpacity: isDarkMode ? 0.4 : 0.2,
     shadowRadius: 10,
   },
   previewWebView: { flex: 1 },
   inputSection: { marginTop: 'auto', marginBottom: 20 },
   input: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     padding: 18,
     borderRadius: 15,
     fontSize: 16,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    color: '#000',
+    borderColor: colors.border,
+    color: colors.text,
   },
   btn: {
-    backgroundColor: '#000',
+    backgroundColor: isDarkMode ? '#FFF' : '#000', // Switch button color for contrast
     padding: 18,
     borderRadius: 15,
     alignItems: 'center',
@@ -175,7 +216,15 @@ const styles = StyleSheet.create({
     borderRightWidth: 5,
     borderRightColor: '#ff0050',
   },
-  btnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  btnText: { 
+    color: isDarkMode ? '#000' : '#FFF', 
+    fontSize: 18, 
+    fontWeight: 'bold' 
+  },
   loaderContainer: { alignItems: 'center', marginBottom: 15 },
-  progressText: { marginTop: 5, color: '#666', fontWeight: '600' }
+  progressText: { 
+    marginTop: 5, 
+    color: colors.subText, 
+    fontWeight: '600' 
+  }
 });

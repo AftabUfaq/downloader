@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react'; // 1. Added useMemo
 import { 
   View, 
   Text, 
@@ -7,13 +7,15 @@ import {
   StyleSheet, 
   Alert, 
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  StatusBar // 2. Added StatusBar
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Share, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { startDownload, requestStoragePermission } from '../utils/DownloadManager'; 
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 3. Import Theme
 
 // --- ADMOB IMPORT ---
 import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile-ads';
@@ -21,8 +23,6 @@ import { InterstitialAd, AdEventType, TestIds } from 'react-native-google-mobile
 const { width } = Dimensions.get('window');
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
-// --- ADMOB CONFIGURATION ---
-// Replace the string below with your real Ad Unit ID from AdMob for production
 const adUnitId = __DEV__ ? TestIds.INTERSTITIAL : 'ca-app-pub-7435562362672599/XXXXXXXXXX';
 
 const interstitial = InterstitialAd.createForAdRequest(adUnitId, {
@@ -36,24 +36,23 @@ export default function FacebookScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
-  const [adLoaded, setAdLoaded] = useState(false); // Ad state
+  const [adLoaded, setAdLoaded] = useState(false);
+
+  // 4. Access Theme Context
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
-  // --- ADMOB LOGIC ---
   useEffect(() => {
     const unsubscribeLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
       setAdLoaded(true);
     });
-
     const unsubscribeClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
       setAdLoaded(false);
-      interstitial.load(); // Pre-load next ad immediately
+      interstitial.load();
     });
-
-    // Start loading the first ad
     interstitial.load();
-
     return () => {
       unsubscribeLoaded();
       unsubscribeClosed();
@@ -106,7 +105,6 @@ export default function FacebookScreen({ route }) {
     try {
       const localUri = await startDownload(result, 'Facebook', (p) => setProgress(p));
       
-      // --- SHOW AD IF LOADED ---
       if (adLoaded) {
         interstitial.show();
       }
@@ -137,12 +135,14 @@ export default function FacebookScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* 5. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.headerArea}>
         <Share size={60} color="#1877F2" />
         <Text style={styles.title}>{t('fb_header')}</Text>
       </View>
 
-      {/* --- VIDEO PREVIEW UI --- */}
       {previewPath && (
         <View style={styles.previewBox}>
           <View style={[styles.previewHeader, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -175,7 +175,7 @@ export default function FacebookScreen({ route }) {
         <TextInput 
           style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]} 
           placeholder={t('fb_placeholder')} 
-          placeholderTextColor="#999"
+          placeholderTextColor={colors.subText} // Dynamic
           onChangeText={setUrl} 
           value={url}
           autoCapitalize="none"
@@ -221,22 +221,100 @@ export default function FacebookScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F2F5', padding: 20 },
-  headerArea: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1877F2', marginTop: 10 },
-  inputCard: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, elevation: 3 },
-  input: { backgroundColor: '#F0F2F5', padding: 15, borderRadius: 10, fontSize: 16, color: '#000', marginBottom: 20 },
-  btn: { backgroundColor: '#1877F2', padding: 16, borderRadius: 10, alignItems: 'center' },
-  btnDisabled: { backgroundColor: '#A2C5F2' },
-  btnText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-  progressArea: { alignItems: 'center', marginBottom: 20 },
-  progressText: { marginTop: 10, fontSize: 13, color: '#1877F2', fontWeight: '600', marginBottom: 10 },
-  barBg: { height: 6, width: '100%', backgroundColor: '#E4E6EB', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: '#1877F2' },
-  previewBox: { marginBottom: 20, width: '100%' },
-  previewHeader: { justifyContent: 'space-between', marginBottom: 8 },
-  previewText: { fontWeight: 'bold', color: '#65676B' },
-  videoWrapper: { height: 230, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', elevation: 4 },
-  previewWebView: { flex: 1 }
+// 6. Theme-Aware Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, 
+    padding: 20 
+  },
+  headerArea: { 
+    alignItems: 'center', 
+    marginTop: 40, 
+    marginBottom: 20 
+  },
+  title: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    color: '#1877F2', // Kept Facebook Blue for branding
+    marginTop: 10 
+  },
+  inputCard: { 
+    backgroundColor: colors.card, 
+    padding: 20, 
+    borderRadius: 15, 
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
+    shadowRadius: 4,
+  },
+  input: { 
+    backgroundColor: isDarkMode ? colors.background : '#F0F2F5', 
+    padding: 15, 
+    borderRadius: 10, 
+    fontSize: 16, 
+    color: colors.text, 
+    marginBottom: 20,
+    borderWidth: isDarkMode ? 1 : 0,
+    borderColor: colors.border
+  },
+  btn: { 
+    backgroundColor: '#1877F2', 
+    padding: 16, 
+    borderRadius: 10, 
+    alignItems: 'center' 
+  },
+  btnDisabled: { 
+    backgroundColor: isDarkMode ? '#1a3a5f' : '#A2C5F2' 
+  },
+  btnText: { 
+    color: '#FFF', 
+    fontSize: 16, 
+    fontWeight: 'bold' 
+  },
+  progressArea: { 
+    alignItems: 'center', 
+    marginBottom: 20 
+  },
+  progressText: { 
+    marginTop: 10, 
+    fontSize: 13, 
+    color: '#1877F2', 
+    fontWeight: '600', 
+    marginBottom: 10 
+  },
+  barBg: { 
+    height: 6, 
+    width: '100%', 
+    backgroundColor: colors.border, 
+    borderRadius: 3, 
+    overflow: 'hidden' 
+  },
+  barFill: { 
+    height: '100%', 
+    backgroundColor: '#1877F2' 
+  },
+  previewBox: { 
+    marginBottom: 20, 
+    width: '100%' 
+  },
+  previewHeader: { 
+    justifyContent: 'space-between', 
+    marginBottom: 8 
+  },
+  previewText: { 
+    fontWeight: 'bold', 
+    color: colors.subText 
+  },
+  videoWrapper: { 
+    height: 230, 
+    borderRadius: 12, 
+    overflow: 'hidden', 
+    backgroundColor: '#000', 
+    elevation: 4 
+  },
+  previewWebView: { 
+    flex: 1 
+  }
 });

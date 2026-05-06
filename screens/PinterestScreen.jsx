@@ -1,11 +1,23 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, PermissionsAndroid } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ActivityIndicator, 
+  Platform, 
+  PermissionsAndroid,
+  StatusBar // Added StatusBar
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Pin, XCircle } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../context/ThemeContext'; // 1. Import Theme Hook
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
@@ -16,6 +28,10 @@ export default function PinterestScreen({ route }) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null);
+
+  // 2. Extract theme context
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
 
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
@@ -157,9 +173,12 @@ export default function PinterestScreen({ route }) {
 
   return (
     <View style={styles.container}>
+      {/* 3. Sync StatusBar */}
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={styles.header}>
         <Pin size={50} color="#BD081C" />
-        <Text style={[styles.title, { color: '#BD081C' }]}>{t('pin_header')}</Text>
+        <Text style={styles.title}>{t('pin_header')}</Text>
       </View>
 
       {previewPath && (
@@ -192,7 +211,7 @@ export default function PinterestScreen({ route }) {
       <TextInput
         style={[styles.input, { textAlign: isRTL ? 'right' : 'left' }]}
         placeholder={t('pin_placeholder')}
-        placeholderTextColor="#999"
+        placeholderTextColor={colors.subText} // Dynamic Placeholder
         value={url}
         onChangeText={setUrl}
         editable={!loading}
@@ -207,7 +226,11 @@ export default function PinterestScreen({ route }) {
         </View>
       )}
 
-      <TouchableOpacity style={styles.btn} onPress={handleProcess} disabled={loading}>
+      <TouchableOpacity 
+        style={[styles.btn, loading && { opacity: 0.7 }]} 
+        onPress={handleProcess} 
+        disabled={loading}
+      >
         <Text style={styles.btnText}>
           {loading ? t('pin_btn_wait') : t('pin_btn_dl')}
         </Text>
@@ -229,17 +252,68 @@ export default function PinterestScreen({ route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA', padding: 20 },
-  header: { alignItems: 'center', marginTop: 40, marginBottom: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', marginTop: 10 },
-  previewContainer: { marginBottom: 20 },
-  previewHeader: { justifyContent: 'space-between' },
-  previewLabel: { fontWeight: 'bold', color: '#666' },
-  videoBox: { height: 250, borderRadius: 15, overflow: 'hidden', backgroundColor: '#000' },
-  input: { backgroundColor: '#FFF', padding: 15, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#eee', color: '#000' },
-  btn: { backgroundColor: '#BD081C', padding: 18, borderRadius: 12, alignItems: 'center' },
-  btnText: { color: '#FFF', fontWeight: 'bold' },
-  loaderContainer: { alignItems: 'center', marginBottom: 20 },
-  progressText: { marginTop: 8, color: '#666', fontWeight: '600' }
+// 4. Dynamic Stylesheet
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background, // Dynamic
+    padding: 20 
+  },
+  header: { 
+    alignItems: 'center', 
+    marginTop: 40, 
+    marginBottom: 20 
+  },
+  title: { 
+    fontSize: 22, 
+    fontWeight: 'bold', 
+    marginTop: 10,
+    color: '#BD081C' // Branded color
+  },
+  previewContainer: { 
+    marginBottom: 20 
+  },
+  previewHeader: { 
+    justifyContent: 'space-between',
+    marginBottom: 8 
+  },
+  previewLabel: { 
+    fontWeight: 'bold', 
+    color: colors.text // Dynamic
+  },
+  videoBox: { 
+    height: 250, 
+    borderRadius: 15, 
+    overflow: 'hidden', 
+    backgroundColor: '#000' 
+  },
+  input: { 
+    backgroundColor: colors.card, // Dynamic
+    padding: 15, 
+    borderRadius: 12, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: colors.border, // Dynamic
+    color: colors.text // Dynamic
+  },
+  btn: { 
+    backgroundColor: '#BD081C', // Branded color
+    padding: 18, 
+    borderRadius: 12, 
+    alignItems: 'center' 
+  },
+  btnText: { 
+    color: '#FFF', 
+    fontWeight: 'bold',
+    fontSize: 16 
+  },
+  loaderContainer: { 
+    alignItems: 'center', 
+    marginBottom: 20 
+  },
+  progressText: { 
+    marginTop: 8, 
+    color: colors.subText, // Dynamic
+    fontWeight: '600' 
+  }
 });

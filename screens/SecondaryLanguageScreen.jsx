@@ -1,80 +1,110 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
   FlatList, 
-  SafeAreaView 
+  StatusBar 
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ArrowLeft } from 'lucide-react-native';
+import { useTheme } from '../context/ThemeContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const LANGUAGES = [
-  { 
-    id: 'en', 
-    name: 'English', 
-    flag: '🌐', 
-    variants: [
-      { code: 'en-US', name: 'English (US)', flag: '🇺🇸' },
-      { code: 'en-GB', name: 'English (UK)', flag: '🇬🇧' }
-    ] 
-  },
-  { 
-    id: 'ar', 
-    name: 'العربية', 
-    flag: '🌐',
-    variants: [
-      { code: 'ar-SA', name: 'العربية (السعودية)', flag: '🇸🇦' },
-      { code: 'ar-EG', name: 'العربية (مصر)', flag: '🇪🇬' },
-      { code: 'ar-AE', name: 'العربية (الإمارات)', flag: '🇦🇪' }
-    ]
-  },
-  { id: 'ur_parent', code: 'ur', name: 'اردو', flag: '🇵🇰', variants: null },
-  { id: 'hi_parent', code: 'hi', name: 'हिन्दी', flag: '🇮🇳', variants: null },
-  { id: 'es_parent', code: 'es', name: 'Español', flag: '🇪🇸', variants: null },
-  { id: 'fr_parent', code: 'fr', name: 'Français', flag: '🇫🇷', variants: null },
-];
+// Define 6 variants for every language code from your LanguageScreen
+const ALL_VARIANTS = {
+  en: [
+    { code: 'en-US', name: 'English (United States)', flag: '🇺🇸' },
+    { code: 'en-GB', name: 'English (United Kingdom)', flag: '🇬🇧' },
+    { code: 'en-CA', name: 'English (Canada)', flag: '🇨🇦' },
+    { code: 'en-AU', name: 'English (Australia)', flag: '🇦🇺' },
+    { code: 'en-NZ', name: 'English (New Zealand)', flag: '🇳🇿' },
+    { code: 'en-IE', name: 'English (Ireland)', flag: '🇮🇪' },
+  ],
+  es: [
+    { code: 'es-ES', name: 'Español (España)', flag: '🇪🇸' },
+    { code: 'es-MX', name: 'Español (México)', flag: '🇲🇽' },
+    { code: 'es-AR', name: 'Español (Argentina)', flag: '🇦🇷' },
+    { code: 'es-CO', name: 'Español (Colombia)', flag: '🇨🇴' },
+    { code: 'es-CL', name: 'Español (Chile)', flag: '🇨🇱' },
+    { code: 'es-US', name: 'Español (Estados Unidos)', flag: '🇺🇸' },
+  ],
+  fr: [
+    { code: 'fr-FR', name: 'Français (France)', flag: '🇫🇷' },
+    { code: 'fr-CA', name: 'Français (Canada)', flag: '🇨🇦' },
+    { code: 'fr-BE', name: 'Français (Belgique)', flag: '🇧🇪' },
+    { code: 'fr-CH', name: 'Français (Suisse)', flag: '🇨🇭' },
+    { code: 'fr-LU', name: 'Français (Luxembourg)', flag: '🇱🇺' },
+    { code: 'fr-MC', name: 'Français (Monaco)', flag: '🇲🇨' },
+  ],
+  ar: [
+    { code: 'ar-SA', name: 'العربية (السعودية)', flag: '🇸🇦' },
+    { code: 'ar-EG', name: 'العربية (مصر)', flag: '🇪🇬' },
+    { code: 'ar-AE', name: 'العربية (الإمارات)', flag: '🇦🇪' },
+    { code: 'ar-MA', name: 'العربية (المغرب)', flag: '🇲🇦' },
+    { code: 'ar-QA', name: 'العربية (قطر)', flag: '🇶🇦' },
+    { code: 'ar-KW', name: 'العربية (الكويت)', flag: '🇰🇼' },
+  ],
+  hi: [
+    { code: 'hi-IN', name: 'हिन्दी (भारत)', flag: '🇮🇳' },
+    { code: 'hi-FJ', name: 'हिन्दी (फ़िजी)', flag: '🇫🇯' },
+    { code: 'hi-MU', name: 'हिन्दी (मॉरीशस)', flag: '🇲🇺' },
+    { code: 'hi-SR', name: 'हिन्दी (सूरीनाम)', flag: '🇸🇷' },
+    { code: 'hi-GY', name: 'हिन्दी (गयाना)', flag: '🇬🇾' },
+    { code: 'hi-NP', name: 'हिन्दी (नेपाल)', flag: '🇳🇵' },
+  ],
+  ur: [
+    { code: 'ur-PK', name: 'اردو (پاکستان)', flag: '🇵🇰' },
+    { code: 'ur-IN', name: 'اردو (भारत)', flag: '🇮🇳' },
+    { code: 'ur-AE', name: 'اردو (متحدہ عرب امارات)', flag: '🇦🇪' },
+    { code: 'ur-GB', name: 'اردو (برطانیہ)', flag: '🇬🇧' },
+    { code: 'ur-SA', name: 'اردو (سعودی عرب)', flag: '🇸🇦' },
+    { code: 'ur-CA', name: 'اردو (کینیڈا)', flag: '🇨🇦' },
+  ],
+};
 
-const SecondaryLanguageScreen = ({ navigation }) => {
+const SecondaryLanguageScreen = ({ navigation, route }) => {
   const { t, i18n } = useTranslation();
   const [selectedLanguage, setSelectedLanguage] = useState('');
-  const [currentVariants, setCurrentVariants] = useState(null); 
-  const [parentName, setParentName] = useState(''); 
+  
+  // Get the primary language passed from the previous screen (e.g., 'en', 'ar')
+  const primaryLanguageCode = route.params?.primaryLanguage || 'en';
 
+  const { colors, isDarkMode } = useTheme();
+  const styles = useMemo(() => getStyles(colors, isDarkMode), [colors, isDarkMode]);
   const isRTL = i18n.language === 'ar' || i18n.language === 'ur';
 
-  const handleSelect = (item) => {
-    if (item.variants) {
-      setCurrentVariants(item.variants);
-      setParentName(item.name);
-    } else {
-      const code = item.code;
-      setSelectedLanguage(code);
-      i18n.changeLanguage(code);
-    }
-  };
+  // Automatically load the correct variants for the selected primary language
+  const currentVariants = useMemo(() => {
+    return ALL_VARIANTS[primaryLanguageCode] || ALL_VARIANTS['en'];
+  }, [primaryLanguageCode]);
 
   const handleVariantSelect = (variant) => {
     setSelectedLanguage(variant.code);
-    // Changes language based on the base code (e.g., 'en' from 'en-US')
-    i18n.changeLanguage(variant.code.split('-')[0]); 
   };
 
   const handleContinue = async () => {
     if (!selectedLanguage) return;
     try {
       await AsyncStorage.setItem('secondary-language', selectedLanguage);
-      navigation.navigate('Permissions');
+
+      if (route.params?.isSettingFlow) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainApp' }], 
+        });
+      } else {
+        navigation.navigate('Permissions');
+      }
     } catch (e) {
-      console.error("Failed to save language", e);
+      console.log('Error saving secondary language:', e);
     }
   };
 
   const renderItem = ({ item }) => {
-    const isSelected = selectedLanguage === item.code || 
-                       (item.variants && item.variants.some(v => v.code === selectedLanguage));
+    const isSelected = selectedLanguage === item.code;
     
     return (
       <TouchableOpacity 
@@ -83,7 +113,7 @@ const SecondaryLanguageScreen = ({ navigation }) => {
           isSelected && styles.selectedCard,
           { flexDirection: isRTL ? 'row-reverse' : 'row' }
         ]} 
-        onPress={() => currentVariants ? handleVariantSelect(item) : handleSelect(item)}
+        onPress={() => handleVariantSelect(item)}
         activeOpacity={0.7}
       >
         <View style={[styles.mainInfo, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
@@ -104,34 +134,34 @@ const SecondaryLanguageScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+
       <View style={[styles.header, { alignItems: isRTL ? 'flex-end' : 'flex-start' }]}>
-        {currentVariants && (
-          <TouchableOpacity 
-            onPress={() => setCurrentVariants(null)} 
-            style={{ marginBottom: 15 }}
-          >
-            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
-              <View style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
-                <ArrowLeft size={20} color="#666" />
-              </View>
-              <Text style={{ color: '#666', marginHorizontal: 8, fontWeight: '600' }}>
-                {t('back')}
-              </Text>
+        <TouchableOpacity 
+          onPress={() => navigation.goBack()} 
+          style={{ marginBottom: 15 }}
+        >
+          <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center' }}>
+            <View style={{ transform: [{ scaleX: isRTL ? -1 : 1 }] }}>
+              <ArrowLeft size={20} color={colors.subText} />
             </View>
-          </TouchableOpacity>
-        )}
+            <Text style={{ color: colors.subText, marginHorizontal: 8, fontWeight: '600' }}>
+              {t('back')}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         <Text style={[styles.title, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {currentVariants ? `${parentName}` : t('secondary_title')}
+          {t('select_variant')}
         </Text>
         <Text style={[styles.subtitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {currentVariants ? t('select_variant') : t('secondary_subtitle')}
+          {t('secondary_subtitle')}
         </Text>
       </View>
 
       <FlatList
-        data={currentVariants || LANGUAGES}
-        keyExtractor={(item) => item.code || item.id}
+        data={currentVariants}
+        keyExtractor={(item) => item.code}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -150,39 +180,47 @@ const SecondaryLanguageScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+const getStyles = (colors, isDarkMode) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
   header: { paddingHorizontal: 25, paddingTop: 40, marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000' },
-  subtitle: { fontSize: 16, color: '#666', marginTop: 5 },
+  title: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  subtitle: { fontSize: 16, color: colors.subText, marginTop: 5 },
   listContent: { paddingHorizontal: 20, paddingBottom: 120 },
   languageCard: {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderRadius: 16,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: colors.card,
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
   mainInfo: { alignItems: 'center', flex: 1 },
   flagEmoji: { fontSize: 28 },
-  selectedCard: { borderColor: '#FFE600', backgroundColor: '#FFFBE6' },
-  languageName: { fontSize: 18, fontWeight: '700', color: '#333' },
-  selectedText: { color: '#000' },
+  selectedCard: { 
+    borderColor: '#FFE600', 
+    backgroundColor: isDarkMode ? '#2D2A00' : '#FFFBE6' 
+  },
+  languageName: { fontSize: 18, fontWeight: '700', color: colors.text },
+  selectedText: { color: isDarkMode ? '#FFE600' : '#000' },
   radioCircle: { 
     height: 24, 
     width: 24, 
     borderRadius: 12, 
     borderWidth: 2, 
-    borderColor: '#CCC', 
+    borderColor: colors.border,
     alignItems: 'center', 
     justifyContent: 'center' 
   },
-  selectedRadio: { borderColor: '#000' },
-  radioInner: { height: 12, width: 12, borderRadius: 6, backgroundColor: '#000' },
-  footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: '#FFF' },
+  selectedRadio: { borderColor: isDarkMode ? '#FFE600' : '#000' },
+  radioInner: { 
+    height: 12, 
+    width: 12, 
+    borderRadius: 6, 
+    backgroundColor: isDarkMode ? '#FFE600' : '#000' 
+  },
+  footer: { position: 'absolute', bottom: 0, width: '100%', padding: 20, backgroundColor: colors.background },
   button: { 
     backgroundColor: '#FFE600', 
     paddingVertical: 18, 
@@ -191,7 +229,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
     shadowRadius: 8,
   },
   buttonText: { fontSize: 18, fontWeight: 'bold', color: '#000' },
