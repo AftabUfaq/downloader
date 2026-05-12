@@ -188,10 +188,13 @@ export default function TwitterScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color={colors.text} />
+          <ActivityIndicator color={colors.text} size="small" />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('tw_downloading')} ${progress}%` : t('tw_extracting')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%`, backgroundColor: colors.text }]} />
+          </View>
         </View>
       )}
 
@@ -261,13 +264,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
-  loaderContainer: { 
-    alignItems: "center", 
-    marginBottom: 20 
+  loaderContainer: {
+    alignItems: "center",
+    marginBottom: 20
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, 
-    fontWeight: '600' 
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: colors.text,
   },
 });

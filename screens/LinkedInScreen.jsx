@@ -131,10 +131,13 @@ export default function LinkedInScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#0A66C2" />
+          <ActivityIndicator color="#0A66C2" size="small" />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('li_downloading')} ${progress}%` : t('li_analyzing')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%` }]} />
+          </View>
         </View>
       )}
 
@@ -207,13 +210,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontSize: 16, 
     fontWeight: 'bold' 
   },
-  loaderContainer: { 
-    marginBottom: 20, 
-    alignItems: 'center' 
+  loaderContainer: {
+    marginBottom: 20,
+    alignItems: 'center'
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, // Dynamic
-    fontWeight: '600' 
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#0A66C2',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#0A66C2',
   },
 });

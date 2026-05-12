@@ -132,12 +132,15 @@ export default function TikTokScreen({ route }) {
 
         {loading && (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator color="#00f2ea" />
+            <ActivityIndicator color="#00f2ea" size="small" />
             <Text style={styles.progressText}>
-              {progress > 0 
-                ? `${t('tt_downloading')} ${progress}%` 
+              {progress > 0
+                ? `${t('tt_downloading')} ${progress}%`
                 : t('tt_searching')}
             </Text>
+            <View style={styles.barBg}>
+              <View style={[styles.barFill, { width: `${progress}%` }]} />
+            </View>
           </View>
         )}
 
@@ -224,9 +227,22 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontWeight: 'bold' 
   },
   loaderContainer: { alignItems: 'center', marginBottom: 15 },
-  progressText: { 
-    marginTop: 5, 
-    color: colors.subText, 
-    fontWeight: '600' 
-  }
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#00f2ea',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#00f2ea',
+  },
 });

@@ -56,7 +56,7 @@ export default function HomeStack() {
           color: colors.accent,
           fontSize: 20,
         },
-        headerLeft: () => (
+        headerLeft: ({tintColor}) => (
           navigation.canGoBack() && (
             <TouchableOpacity 
               onPress={() => navigation.goBack()}
@@ -67,7 +67,7 @@ export default function HomeStack() {
                    We use 'headerTintColor' from the screen options 
                    to dynamically color this icon 
                 */}
-                <ArrowLeft size={24} color={navigation.getState().index > 0 ? '#FFFFFF' : colors.text} />
+                <ArrowLeft size={24} color={tintColor || colors.text} />
               </View>
             </TouchableOpacity>
           )
@@ -113,10 +113,18 @@ export default function HomeStack() {
       />
 
       <Stack.Screen 
-        name="Snapchat" 
-        component={SnapchatScreen} 
-        options={platformHeader('sc_header', '#ecec08')} // Snapchat Yellow (Note: May need black text)
-      />
+  name="Snapchat" 
+  component={SnapchatScreen} 
+  options={{
+    ...platformHeader('sc_header', '#FFFC00'),
+    headerTintColor: '#000000', // Override white to Black for arrow
+    headerTitleStyle: {
+      fontWeight: '900',
+      fontSize: 20,
+      color: '#000000', // Override white to Black for Title
+    },
+  }} 
+/>
 
       <Stack.Screen 
         name="Pinterest" 

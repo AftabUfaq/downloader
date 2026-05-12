@@ -219,10 +219,13 @@ export default function PinterestScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#BD081C" />
+          <ActivityIndicator color="#BD081C" size="small" />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('pin_downloading')} ${progress}%` : t('pin_processing')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%` }]} />
+          </View>
         </View>
       )}
 
@@ -307,13 +310,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16 
   },
-  loaderContainer: { 
-    alignItems: 'center', 
-    marginBottom: 20 
+  loaderContainer: {
+    alignItems: 'center',
+    marginBottom: 20
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, // Dynamic
-    fontWeight: '600' 
-  }
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#BD081C',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#BD081C',
+  },
 });

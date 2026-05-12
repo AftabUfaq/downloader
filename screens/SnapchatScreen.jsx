@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestStoragePermission } from '../utils/DownloadManager'; 
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../context/ThemeContext'; // 1. Import Theme hook
+import { useIsFocused } from '@react-navigation/native';
 
 const DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36";
 
@@ -28,6 +29,7 @@ export default function SnapchatScreen({route}) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState(null); 
+  const isFocused = useIsFocused();
 
   // 2. Extract theme data
   const { colors, isDarkMode } = useTheme();
@@ -157,7 +159,13 @@ export default function SnapchatScreen({route}) {
   return (
     <View style={styles.container}>
       {/* 3. Sync StatusBar */}
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={colors.background} />
+     {isFocused && (
+        <StatusBar 
+          barStyle="dark-content" 
+          backgroundColor="#FFFC00" 
+          animated={true} 
+        />
+      )}
 
       <View style={styles.iconWrapper}>
         <Ghost size={50} color="#000" />
@@ -203,10 +211,13 @@ export default function SnapchatScreen({route}) {
       
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color={colors.text} />
+          <ActivityIndicator color="#000" size="small" />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('sc_saving')} ${progress}%` : t('sc_processing')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%` }]} />
+          </View>
         </View>
       )}
 
@@ -295,13 +306,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontSize: 16, 
     fontWeight: 'bold' 
   },
-  loaderContainer: { 
-    marginBottom: 20, 
-    alignItems: 'center' 
+  loaderContainer: {
+    marginBottom: 20,
+    alignItems: 'center'
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, // Dynamic
-    fontWeight: '600' 
-  }
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#FFFC00',
+  },
 });

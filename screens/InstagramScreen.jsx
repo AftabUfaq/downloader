@@ -217,10 +217,13 @@ export default function InstagramScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#E1306C" />
+          <ActivityIndicator color="#E1306C" size="small" />
           <Text style={styles.progressText}>
             {progress > 0 ? `${t('ig_downloading')} ${progress}%` : t('ig_extracting')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%` }]} />
+          </View>
         </View>
       )}
 
@@ -303,13 +306,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontWeight: "bold", 
     fontSize: 16 
   },
-  loaderContainer: { 
-    alignItems: "center", 
-    marginBottom: 20 
+  loaderContainer: {
+    alignItems: "center",
+    marginBottom: 20
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, // Dynamic
-    fontWeight: '600' 
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: "#E1306C",
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#E1306C',
   },
 });

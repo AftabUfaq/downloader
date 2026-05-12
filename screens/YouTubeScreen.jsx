@@ -164,12 +164,15 @@ export default function YouTubeScreen({ route }) {
 
       {loading && (
         <View style={styles.loaderContainer}>
-          <ActivityIndicator color="#FF0000" size="large" />
+          <ActivityIndicator color="#FF0000" size="small" />
           <Text style={styles.progressText}>
             {status === 'downloading' && progress > 0
               ? `${t('yt_downloading')} ${progress}%`
               : t('yt_extracting')}
           </Text>
+          <View style={styles.barBg}>
+            <View style={[styles.barFill, { width: `${progress}%` }]} />
+          </View>
         </View>
       )}
 
@@ -236,13 +239,26 @@ const getStyles = (colors, isDarkMode) => StyleSheet.create({
     fontSize: 16, 
     fontWeight: 'bold' 
   },
-  loaderContainer: { 
-    marginBottom: 20, 
-    alignItems: 'center' 
+  loaderContainer: {
+    marginBottom: 20,
+    alignItems: 'center'
   },
-  progressText: { 
-    marginTop: 8, 
-    color: colors.subText, 
-    fontWeight: '600' 
+  progressText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#FF0000',
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  barBg: {
+    height: 6,
+    width: '100%',
+    backgroundColor: colors.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#FF0000',
   },
 });
